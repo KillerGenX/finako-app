@@ -117,10 +117,12 @@
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
+import { useOrganizationStore } from '@/stores/organizationStore'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const organizationStore = useOrganizationStore()
 
 // Form state
 const form = ref({
@@ -154,7 +156,7 @@ async function handleLogin() {
 
     if (result.success) {
       // Check session and determine redirect
-      const sessionData = await userStore.checkSessionAndRedirect()
+      const sessionData = await organizationStore.checkSessionAndRedirect(userStore.userId)
       
       // Smart redirect based on organization status
       switch (sessionData.next_step) {

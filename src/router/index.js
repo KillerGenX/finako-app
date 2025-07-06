@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
+import { useOrganizationStore } from '@/stores/organizationStore'
 
 // Import Views
 import LoginView from '@/views/LoginView.vue'
@@ -221,6 +222,7 @@ const router = createRouter({
 // Navigation Guards untuk SaaS Flow Control
 router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore()
+  const organizationStore = useOrganizationStore()
   
   // Set page title
   if (to.meta.title) {
@@ -229,23 +231,44 @@ router.beforeEach(async (to, from, next) => {
 
   // Check if route requires authentication
   if (to.meta.requiresAuth) {
-    // Check if user is authenticated
+    // Wait for auth initialization to complete
+    if (!userStore.isReady) {
+      console.log('Waiting for auth initialization...')
+      // Wait for auth to be ready with timeout
+      let retries = 0
+      const maxRetries = 50 // 5 seconds max wait
+      
+      while (!userStore.isReady && retries < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 100))
+        retries++
+      }
+      
+      if (!userStore.isReady) {
+        console.log('Auth initialization timeout, redirecting to login')
+        return next({ name: 'Login', query: { redirect: to.fullPath } })
+      }
+    }
+    
+    // Check if user is authenticated after initialization is complete
     if (!userStore.isLoggedIn) {
-      console.log('User not authenticated, redirecting to login')
+      console.log('User not authenticated after initialization, redirecting to login')
       return next({ name: 'Login', query: { redirect: to.fullPath } })
     }
 
     // If authenticated, check user session and organization status
     try {
       console.log('Checking session for authenticated user...')
-      const sessionData = await userStore.checkSessionAndRedirect()
+      
+      // ALWAYS call backend for authoritative session data
+      // Backend has the complete logic for determining next_step
+      const sessionData = await organizationStore.checkSessionAndRedirect(userStore.userId)
       console.log('Session data received:', sessionData)
       
-      const organization = userStore.organization
+      const organization = organizationStore.organization
       console.log('Organization data:', organization)
       
       const nextStep = sessionData.next_step
-      console.log('Next step:', nextStep)
+      console.log('Next step from backend:', nextStep)
       
       // If no organization data, something went wrong
       if (!organization) {
@@ -260,22 +283,29 @@ router.beforeEach(async (to, from, next) => {
         return next({ name: getRedirectRoute(nextStep) })
       }
 
-      // Check if onboarding is required but not completed
-      if (to.meta.requiresOnboarding && !userStore.isOnboardingCompleted()) {
-        console.log('Onboarding required but not completed')
+      // TRUST BACKEND DECISION COMPLETELY
+      // Backend has the authoritative logic for onboarding completion
+      
+      // If backend says go to onboarding but user is trying to access protected route
+      if (nextStep === 'onboarding' && to.name !== 'Onboarding') {
+        console.log('Backend determined onboarding needed, redirecting to onboarding')
         return next({ name: 'Onboarding' })
       }
 
-      // If trying to access onboarding but already completed
-      if (to.name === 'Onboarding' && userStore.isOnboardingCompleted()) {
-        console.log('Onboarding already completed, redirecting to dashboard')
-        return next({ name: 'Dashboard' })
+      // If backend says go to payment-info but user is trying to access other route
+      if (nextStep === 'payment_info' && to.name !== 'PaymentInfo') {
+        console.log('Backend determined payment info needed, redirecting to payment info')
+        return next({ name: 'PaymentInfo' })
       }
 
-      // If trying to access payment-info but status is not pending
-      if (to.name === 'PaymentInfo' && organization.status !== 'pending') {
-        console.log('Payment info not needed, organization status:', organization.status)
-        return next({ name: getRedirectRoute(nextStep) })
+      // If backend says dashboard, allow access to protected routes
+      if (nextStep === 'dashboard') {
+        // If trying to access onboarding/payment when backend says dashboard
+        if (to.name === 'Onboarding' || to.name === 'PaymentInfo') {
+          console.log('Backend says setup completed, redirecting to dashboard')
+          return next({ name: 'Dashboard' })
+        }
+        // Otherwise allow normal navigation to protected routes
       }
 
     } catch (error) {
@@ -288,7 +318,7 @@ router.beforeEach(async (to, from, next) => {
   // If user is authenticated and trying to access login/register, redirect appropriately
   if ((to.name === 'Login' || to.name === 'Register') && userStore.isLoggedIn) {
     try {
-      const sessionData = await userStore.checkSessionAndRedirect()
+      const sessionData = await organizationStore.checkSessionAndRedirect(userStore.userId)
       const nextStep = sessionData.next_step
       console.log('User already authenticated, redirecting to:', nextStep)
       return next({ name: getRedirectRoute(nextStep) })

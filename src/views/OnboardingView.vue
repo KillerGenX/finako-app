@@ -302,9 +302,11 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
+import { useOrganizationStore } from '@/stores/organizationStore'
 
 const router = useRouter()
 const userStore = useUserStore()
+const organizationStore = useOrganizationStore()
 
 // Form state
 const currentStep = ref(1)
@@ -367,6 +369,12 @@ async function handleSubmit() {
     const result = await userStore.completeOnboarding(onboardingData)
 
     if (result.success) {
+      // Refresh organization data to get updated business profile
+      await organizationStore.refreshOrganizationData()
+      
+      // Clear cache timestamp to force fresh data on next router check
+      organizationStore.lastFetchTime = null
+      
       // Onboarding successful, redirect to dashboard
       router.push('/')
     } else {
@@ -399,8 +407,8 @@ async function handleLogout() {
 // Initialize page
 onMounted(() => {
   // Pre-fill organization name if available
-  if (userStore.organization?.name) {
-    form.value.business_name = userStore.organization.name
+  if (organizationStore.organization?.name) {
+    form.value.business_name = organizationStore.organization.name
   }
 
   // Focus on first field

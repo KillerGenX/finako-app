@@ -146,9 +146,11 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
+import { useOrganizationStore } from '@/stores/organizationStore'
 
 const router = useRouter()
 const userStore = useUserStore()
+const organizationStore = useOrganizationStore()
 
 // State
 const isChecking = ref(false)
@@ -159,7 +161,7 @@ const autoRefreshTimer = ref(null)
 const countdownTimer = ref(null)
 
 // Computed
-const organizationInfo = computed(() => userStore.organization)
+const organizationInfo = computed(() => organizationStore.organization)
 const userProfile = computed(() => userStore.profile)
 
 // Status helpers
@@ -200,7 +202,7 @@ async function checkStatus() {
   isChecking.value = true
   
   try {
-    const sessionData = await userStore.checkSessionAndRedirect()
+    const sessionData = await organizationStore.checkSessionAndRedirect(userStore.userId)
     
     // Handle different status results
     switch (sessionData.next_step) {
