@@ -190,9 +190,11 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
+import { useOrganizationStore } from '@/stores/organizationStore'
 
 const router = useRouter()
 const userStore = useUserStore()
+const organizationStore = useOrganizationStore()
 
 // Form state
 const form = ref({
@@ -265,7 +267,7 @@ async function handleRegister() {
     }
 
     // Attempt registration
-    const result = await userStore.registerTenant(registrationData)
+    const result = await organizationStore.registerTenant(registrationData)
 
     if (result.success) {
       // Find selected package name

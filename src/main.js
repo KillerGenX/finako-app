@@ -16,4 +16,10 @@ const app = createApp(App);
 app.use(createPinia()); // 3. GUNAKAN PINIA
 app.use(router); // 4. BARU GUNAKAN ROUTER
 
+// Initialize auth after stores are ready
+import { useUserStore } from '@/stores/userStore'
+const userStore = useUserStore()
+userStore.setupAuthListener()
+userStore.initializeAuth()
+
 app.mount("#app");

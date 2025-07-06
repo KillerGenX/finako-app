@@ -12,6 +12,13 @@ class ApiService {
     this.userStore = store;
   }
 
+  // Get organization store reference
+  getOrganizationStore() {
+    // Import here to avoid circular dependency
+    const { useOrganizationStore } = require('@/stores/organizationStore');
+    return useOrganizationStore();
+  }
+
   // Get current auth headers
   getAuthHeaders() {
     const headers = {
@@ -31,8 +38,14 @@ class ApiService {
     const url = new URL(`${this.baseURL}/api${endpoint}`);
     
     // Auto-add organization_id if available and not already in params
-    if (this.userStore?.organization?.id && !params.organization_id) {
-      url.searchParams.set('organization_id', this.userStore.organization.id);
+    try {
+      const organizationStore = this.getOrganizationStore();
+      if (organizationStore?.organizationId && !params.organization_id) {
+        url.searchParams.set('organization_id', organizationStore.organizationId);
+      }
+    } catch (error) {
+      // Silent fallback if organizationStore is not available (normal during initialization)
+      // console.warn('OrganizationStore not available, skipping organization_id');
     }
 
     // Add other parameters

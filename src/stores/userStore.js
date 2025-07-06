@@ -2,189 +2,189 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { supabase } from '@/supabase'
 import apiService from '@/services/api'
+import { useOrganizationStore } from './organizationStore'
 
 export const useUserStore = defineStore('user', () => {
   // --- STATE ---
   const session = ref(null)
   const profile = ref(null)
-  const organization = ref(null)
-  const role = ref(null)
   const isReady = ref(false)
   const isSidebarCollapsed = ref(true)
-  const activeFeatures = ref([])
-  const businessProfile = ref(null)
   const notification = ref({ message: '', type: 'info', key: 0 })
+  const isInitializing = ref(false) // Flag untuk mencegah duplicate initialization
+  let authChangeTimeout = null // Debounce timeout untuk auth state changes
 
   // --- GETTERS ---
-  const userRole = computed(() => role.value || 'public')
   const isLoggedIn = computed(() => !!session.value)
-  const organizationId = computed(() => organization.value?.id || null)
-  const hasValidMembership = computed(() => !!session.value && !!organization.value && !!role.value)
+  const userId = computed(() => session.value?.user?.id || null)
 
   // --- INITIALIZE API SERVICE ---
   // Set user store reference to API service to avoid circular imports
   apiService.setUserStore({
     session,
-    organization,
     showNotification,
     clearUserProfile
   })
 
-  // --- ACTIONS ---
-  async function fetchUserProfile() {
-    isReady.value = false;
+  // --- AUTH STATE LISTENER ---
+  // Handle session persistence and restoration
+  async function initializeAuth() {
+    if (isInitializing.value) {
+      console.log('Auth already initializing, skipping...')
+      return
+    }
+    
+    console.log('Initializing auth...')
+    isInitializing.value = true
+    
     try {
-      // Get current Supabase session (auth still via Supabase)
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      if (!currentSession) {
-        clearUserProfile();
-        isReady.value = true;
-        return;
+      // Get initial session
+      const { data: { session: currentSession } } = await supabase.auth.getSession()
+      if (currentSession) {
+        console.log('Session found on init, restoring...')
+        session.value = currentSession
+        await fetchUserProfile()
+      } else {
+        console.log('No session found on init')
+        isReady.value = true
       }
-      session.value = currentSession;
+    } catch (error) {
+      console.error('Error initializing auth:', error)
+      isReady.value = true
+    } finally {
+      isInitializing.value = false
+    }
+  }
+
+  // Set up auth state change listener
+  function setupAuthListener() {
+    console.log('Setting up auth listener...')
+    supabase.auth.onAuthStateChange(async (event, newSession) => {
+      console.log('Auth state changed:', event, newSession?.user?.id)
       
-      // --- ENHANCED: Use Backend API instead of direct Supabase ---
-      
-      // Get user membership and organization data via backend
-      try {
-        const { data: memberData, error: memberError } = await supabase
-          .from('organization_members')
-          .select(`role, organizations ( * )`)
-          .eq('user_id', session.value.user.id)
-          .single();
-          
-        if (memberError && memberError.code !== 'PGRST116') throw memberError;
-        
-        if (memberData) {
-          role.value = memberData.role;
-          organization.value = memberData.organizations;
-          console.log('UserStore Debug - Organization:', organization.value);
-        }
-      } catch (error) {
-        console.error('Error fetching membership:', error);
-        // Continue with profile fetch even if membership fails
+      // Skip if we're currently initializing to avoid conflicts
+      if (isInitializing.value) {
+        console.log('Skipping auth state change during initialization')
+        return
       }
 
-      // Get organization features via backend (if organization exists)
-      if (organization.value?.id) {
+      // Clear any existing timeout to debounce rapid auth changes
+      if (authChangeTimeout) {
+        clearTimeout(authChangeTimeout)
+      }
+
+      // Debounce auth state changes to prevent rapid fire calls
+      authChangeTimeout = setTimeout(async () => {
         try {
-          const { data: featureData, error: featureError } = await supabase
-            .from('organization_features')
-            .select('feature_id')
-            .eq('organization_id', organization.value.id)
-            .eq('is_enabled', true);
-            
-          if (featureError) throw featureError;
-          if (featureData) {
-            activeFeatures.value = featureData.map(f => f.feature_id);
+          if (event === 'SIGNED_IN' && newSession) {
+            console.log('User signed in, setting session...')
+            session.value = newSession
+            console.log('Session set, fetching profile...')
+            await fetchUserProfile()
+          } else if (event === 'SIGNED_OUT') {
+            console.log('User signed out, clearing profile...')
+            clearUserProfile()
           }
         } catch (error) {
-          console.error('Error fetching features:', error);
-          activeFeatures.value = [];
+          console.error('Error handling auth state change:', error)
         }
+      }, 150) // 150ms debounce to handle rapid auth changes
+    })
+  }
 
-        // Get business profile via backend API
-        try {
-          const profileData = await apiService.getBusinessProfile(organization.value.id);
-          businessProfile.value = profileData.data;
-          console.log('UserStore Debug - Business Profile:', businessProfile.value);
-        } catch (error) {
-          console.error('Error fetching business profile:', error);
-          businessProfile.value = null;
-        }
+  // --- ACTIONS ---
+  async function fetchUserProfile() {
+    // Prevent duplicate calls if already loading
+    if (!isReady.value && profile.value) {
+      console.log('Profile fetch already in progress, skipping...')
+      return
+    }
+
+    isReady.value = false
+    const organizationStore = useOrganizationStore()
+    
+    try {
+      // Get current Supabase session (auth still via Supabase)
+      const { data: { session: currentSession } } = await supabase.auth.getSession()
+      if (!currentSession) {
+        clearUserProfile()
+        isReady.value = true
+        return
       }
+      session.value = currentSession
 
-      // Get user profile from Supabase (user data still in Supabase)
+      // Get user profile from Supabase
       try {
         const { data: userProfileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', session.value.user.id)
-          .single();
+          .single()
           
-        if (profileError && profileError.code !== 'PGRST116') throw profileError;
-        if (userProfileData) profile.value = userProfileData;
+        if (profileError && profileError.code !== 'PGRST116') throw profileError
+        if (userProfileData) profile.value = userProfileData
       } catch (error) {
-        console.error('Error fetching user profile:', error);
+        console.error('Error fetching user profile:', error)
         // Continue even if profile fetch fails
       }
 
+      // Fetch organization data using organizationStore
+      try {
+        await organizationStore.fetchOrganizationData(session.value.user.id)
+      } catch (error) {
+        console.error('Error fetching organization data:', error)
+        // Continue even if organization fetch fails
+      }
+
     } catch (e) {
-      console.error("Error di dalam fetchUserProfile:", e.message);
-      clearUserProfile();
+      console.error("Error in fetchUserProfile:", e.message)
+      clearUserProfile()
     } finally {
-      isReady.value = true;
+      isReady.value = true
     }
   }
 
   function clearUserProfile() {
-    session.value = null;
-    profile.value = null;
-    organization.value = null;
-    role.value = null;
-    activeFeatures.value = [];
-    businessProfile.value = null;
-    notification.value = { message: '', type: 'info', key: 0 };
-  }
-
-  // Enhanced logout function
-  async function logout() {
-    try {
-      await supabase.auth.signOut();
-      clearUserProfile();
-      showNotification('Berhasil logout', 'success');
-      
-      // Redirect to login page if in browser
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login';
-      }
-    } catch (error) {
-      console.error('Logout error:', error);
-      showNotification('Error saat logout', 'error');
-    }
+    const organizationStore = useOrganizationStore()
+    
+    session.value = null
+    profile.value = null
+    notification.value = { message: '', type: 'info', key: 0 }
+    
+    // Clear organization data via organizationStore
+    organizationStore.clearOrganizationData()
   }
 
   // Refresh user data
   async function refreshUserData() {
-    if (!session.value) return;
-    await fetchUserProfile();
+    if (!session.value) return
+    await fetchUserProfile()
   }
 
-  // Check if user has specific feature access
-  function hasFeature(featureId) {
-    return activeFeatures.value.includes(featureId);
-  }
+  // Update user profile
+  async function updateProfile(profileData) {
+    try {
+      if (!session.value?.user?.id) {
+        throw new Error('User not authenticated')
+      }
 
-  // Check if user has specific role
-  function hasRole(requiredRole) {
-    if (!role.value) return false;
-    
-    const roleHierarchy = {
-      'super_admin': 4,
-      'admin': 3,
-      'manager': 2,
-      'staff': 1,
-      'viewer': 0
-    };
-    
-    return roleHierarchy[role.value] >= roleHierarchy[requiredRole];
-  }
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(profileData)
+        .eq('id', session.value.user.id)
+        .select()
+        .single()
 
-  // Validate organization membership
-  function validateMembership() {
-    if (!isLoggedIn.value) {
-      throw new Error('User tidak terautentikasi');
+      if (error) throw error
+
+      profile.value = data
+      showNotification('Profil berhasil diperbarui', 'success')
+      return { success: true, data }
+    } catch (error) {
+      console.error('Error updating profile:', error)
+      showNotification(error.message, 'error')
+      throw error
     }
-    
-    if (!organization.value) {
-      throw new Error('User tidak memiliki organisasi');
-    }
-    
-    if (!role.value) {
-      throw new Error('User tidak memiliki role dalam organisasi');
-    }
-    
-    return true;
   }
 
   function toggleSidebar() {
@@ -200,114 +200,56 @@ export const useUserStore = defineStore('user', () => {
     }, duration);
   }
 
-  // --- SaaS FLOW ACTIONS ---
+  // --- SaaS FLOW ACTIONS (Delegated to OrganizationStore) ---
   async function checkSessionAndRedirect() {
+    const organizationStore = useOrganizationStore()
+    
+    if (!session.value?.user?.id) {
+      return { next_step: 'login' }
+    }
+
     try {
-      if (!session.value?.user?.id) {
-        return { next_step: 'login' };
-      }
-
-      console.log('Checking session for user ID:', session.value.user.id);
-      
-      // Use direct API call without withErrorHandling wrapper to get raw response
-      const response = await apiService.getSessionInfo(session.value.user.id);
-      
-      console.log('Session API response:', response);
-
-      // Extract data from the response structure {success: true, data: {...}}
-      const data = response.data || response;
-      
-      console.log('Extracted data:', data);
-
-      // Update store with fresh data
-      if (data.organization) {
-        organization.value = data.organization;
-        role.value = data.role;
-        console.log('Updated organization:', data.organization);
-      }
-      
-      if (data.business_profile) {
-        businessProfile.value = data.business_profile;
-        console.log('Updated business profile:', data.business_profile);
-      }
-
-      if (data.active_features) {
-        activeFeatures.value = data.active_features;
-        console.log('Updated active features:', data.active_features);
-      }
-
-      const nextStep = data.next_step || 'dashboard';
-      console.log('Determined next step:', nextStep);
-      
-      return { next_step: nextStep };
+      const result = await organizationStore.checkSessionAndRedirect(session.value.user.id)
+      return result
     } catch (error) {
-      console.error('Session check failed:', error);
-      return { next_step: 'login' };
+      console.error('Session check failed:', error)
+      return { next_step: 'login' }
     }
   }
 
   async function registerTenant(registrationData) {
+    const organizationStore = useOrganizationStore()
+    
     try {
-      console.log('Registering tenant with data:', registrationData);
-      
-      // Use API service method directly
-      const data = await apiService.registerTenant(registrationData);
-      
-      console.log('Registration API response:', data);
-
-      // Update store with new organization data
-      if (data.organization) {
-        organization.value = data.organization;
-        role.value = 'owner';
-      }
-
-      showNotification('Registrasi berhasil!', 'success');
-      return { success: true, next_step: data.next_step || 'login' };
+      const result = await organizationStore.registerTenant(registrationData)
+      showNotification('Registrasi berhasil!', 'success')
+      return result
     } catch (error) {
-      console.error('Registration error:', error);
-      showNotification(error.message, 'error');
-      return { success: false, error: error.message };
+      console.error('Registration error:', error)
+      showNotification(error.message, 'error')
+      return { success: false, error: error.message }
     }
   }
 
   async function completeOnboarding(onboardingData) {
+    const organizationStore = useOrganizationStore()
+    
     try {
-      if (!session.value?.user?.id || !organization.value?.id) {
-        throw new Error('User session or organization not found');
+      if (!session.value?.user?.id) {
+        throw new Error('User session not found')
       }
 
-      console.log('Completing onboarding with data:', onboardingData);
-      
-      // Use API service method directly (no destructuring needed)
-      const data = await apiService.completeOnboarding(
+      const result = await organizationStore.completeOnboarding(
         session.value.user.id,
-        organization.value.id,
         onboardingData
-      );
-
-      console.log('Onboarding API response:', data);
-
-      // Refresh user profile to get updated business profile
-      await fetchUserProfile();
+      )
       
-      showNotification('Setup bisnis berhasil!', 'success');
-      return { success: true, next_step: data.next_step || 'dashboard' };
+      showNotification('Setup bisnis berhasil!', 'success')
+      return result
     } catch (error) {
-      console.error('Onboarding error:', error);
-      showNotification(error.message, 'error');
-      return { success: false, error: error.message };
-    }
-  }
-
-  async function getPackages() {
-    try {
-      console.log('UserStore: Calling API getPackages...')
-      const data = await apiService.getPackages(); // Langsung terima data, bukan {data, error}
-      console.log('UserStore: API response:', data)
-      return data;
-    } catch (error) {
-      console.error('Failed to fetch packages:', error);
-      return [];
+      console.error('Onboarding error:', error)
+      showNotification(error.message, 'error')
+      return { success: false, error: error.message }
     }
   }
 
@@ -317,79 +259,88 @@ export const useUserStore = defineStore('user', () => {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
-      });
+      })
 
-      if (error) throw error;
+      if (error) throw error
 
       // Fetch user profile after successful login
-      await fetchUserProfile();
+      await fetchUserProfile()
       
-      showNotification('Login berhasil!', 'success');
-      return { success: true };
+      showNotification('Login berhasil!', 'success')
+      return { success: true }
     } catch (error) {
-      console.error('Login error:', error);
-      showNotification(error.message, 'error');
-      return { success: false, error: error.message };
+      console.error('Login error:', error)
+      showNotification(error.message, 'error')
+      return { success: false, error: error.message }
     }
   }
 
   async function logout() {
     try {
-      await supabase.auth.signOut();
-      clearUserProfile();
-      showNotification('Logout berhasil', 'info');
-      return { success: true };
+      await supabase.auth.signOut()
+      clearUserProfile()
+      showNotification('Logout berhasil', 'info')
+      return { success: true }
     } catch (error) {
-      console.error('Logout error:', error);
-      clearUserProfile(); // Force clear even if logout fails
-      return { success: false, error: error.message };
+      console.error('Logout error:', error)
+      clearUserProfile() // Force clear even if logout fails
+      return { success: false, error: error.message }
     }
   }
 
   // --- UTILITY METHODS ---
-  function hasRole(requiredRole) {
-    return role.value === requiredRole;
+  function validateAuthentication() {
+    if (!isLoggedIn.value) {
+      throw new Error('User tidak terautentikasi')
+    }
+    return true
   }
 
-  function hasFeature(requiredFeature) {
-    return activeFeatures.value.includes(requiredFeature);
-  }
-
-  function getOrganizationStatus() {
-    return organization.value?.status || 'unknown';
-  }
-
-  function isOnboardingCompleted() {
-    const hasActiveStatus = organization.value?.status === 'active';
-    const hasBusinessProfile = !!businessProfile.value;
-    
-    console.log('Checking onboarding completion:');
-    console.log('- Organization status:', organization.value?.status);
-    console.log('- Has business profile:', hasBusinessProfile);
-    console.log('- Is completed:', hasActiveStatus && hasBusinessProfile);
-    
-    return hasActiveStatus && hasBusinessProfile;
+  async function getPackages() {
+    try {
+      console.log('UserStore: Calling API getPackages...')
+      const data = await apiService.getPackages()
+      console.log('UserStore: API response:', data)
+      return data
+    } catch (error) {
+      console.error('Failed to fetch packages:', error)
+      return []
+    }
   }
 
   return { 
     // State
-    session, profile, organization, role, isReady,
-    isSidebarCollapsed, activeFeatures, businessProfile, notification,
+    session, 
+    profile, 
+    isReady,
+    isSidebarCollapsed, 
+    notification,
     
     // Getters
-    userRole, isLoggedIn, organizationId, hasValidMembership, isOnboardingCompleted,
+    isLoggedIn, 
+    userId,
     
     // Actions
-    fetchUserProfile, clearUserProfile, logout, refreshUserData,
-    toggleSidebar, showNotification,
+    fetchUserProfile, 
+    clearUserProfile, 
+    refreshUserData,
+    updateProfile,
+    toggleSidebar, 
+    showNotification,
     
-    // Utilities
-    hasFeature, hasRole, validateMembership,
+    // Authentication
+    loginWithEmailPassword,
+    logout,
+    validateAuthentication,
 
-    // SaaS Actions
-    checkSessionAndRedirect, registerTenant, completeOnboarding, getPackages,
-
-    // Enhanced Login/Logout
-    loginWithEmailPassword
+    // SaaS Actions (Delegated)
+    checkSessionAndRedirect, 
+    registerTenant, 
+    completeOnboarding, 
+    getPackages,
+    
+    // Auth Initialization
+    initializeAuth,
+    setupAuthListener
   }
 })
