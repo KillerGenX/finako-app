@@ -3,15 +3,24 @@ const router = express.Router();
 const salesController = require('../controllers/salesController');
 
 // Middleware validateMembership sudah diterapkan di index.js untuk /api/sales
-// GET /api/sales?organization_id=xxx
+
+// Basic CRUD operations
 router.get('/', salesController.getAll);
-// POST /api/sales
 router.post('/', salesController.create);
-// GET /api/sales/:id
 router.get('/:id', salesController.getById);
-// PUT /api/sales/:id
 router.put('/:id', salesController.update);
-// DELETE /api/sales/:id
 router.delete('/:id', salesController.remove);
+
+// ===== ENHANCED INTEGRATION ENDPOINTS =====
+
+// Get enhanced sale details with payments and stock movements
+router.get('/:id/enhanced', salesController.getEnhancedById);
+
+// Payment management for specific sale
+router.get('/:id/payments', salesController.getPayments);
+router.post('/:id/payments', salesController.addPayment);
+
+// Stock movement tracking for specific sale
+router.get('/:id/stock-movements', salesController.getStockMovements);
 
 module.exports = router;

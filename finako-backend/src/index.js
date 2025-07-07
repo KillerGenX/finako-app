@@ -45,6 +45,18 @@ const outletsRoutes = require('./routes/outlets');
 const organizationFeaturesRoutes = require('./routes/organizationFeatures');
 const usersRoutes = require('./routes/users');
 
+// Sale payments route - FASE 1 Implementation
+const salePaymentsRoutes = require('./routes/salePayments');
+
+// Stock movements route - FASE 1 Implementation
+const stockMovementsRoutes = require('./routes/stockMovements');
+
+// Suppliers route - FASE 2 Implementation
+const suppliersRoutes = require('./routes/suppliers');
+
+// Purchase Orders route - FASE 2 Implementation
+const purchaseOrdersRoutes = require('./routes/purchaseOrders');
+
 // Auth & Admin routes
 const authRoutes = require('./routes/auth');
 const onboardingRoutes = require('./routes/onboarding');
@@ -132,6 +144,18 @@ app.use('/api/business-profile', validateMembership, businessProfilesRoutes);
 app.use('/api/outlets', validateMembership, outletsRoutes);
 app.use('/api/organization-features', validateMembership, organizationFeaturesRoutes);
 app.use('/api/users', validateMembership, usersRoutes);
+
+// FASE 1 - Sale Payments API
+app.use('/api/sale-payments', validateMembership, salePaymentsRoutes);
+
+// FASE 1 - Stock Movements API
+app.use('/api/stock-movements', validateMembership, stockMovementsRoutes);
+
+// FASE 2 - Suppliers API (Pro Plan feature)
+app.use('/api/suppliers', validateMembership, suppliersRoutes);
+
+// FASE 2 - Purchase Orders API (Pro Plan feature)
+app.use('/api/purchase-orders', validateMembership, purchaseOrdersRoutes);
 
 // Auth & Onboarding routes (no validateMembership needed)
 app.use('/api/auth', authRoutes);

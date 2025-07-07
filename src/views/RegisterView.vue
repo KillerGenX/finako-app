@@ -106,7 +106,9 @@
               class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
               :disabled="isLoading || packagesLoading"
             >
-              <option value="">Pilih paket langganan</option>
+              <option value="">
+                {{ packagesLoading ? 'Memuat paket...' : 'Pilih paket langganan' }}
+              </option>
               <option
                 v-for="pkg in packages"
                 :key="pkg.id"
@@ -120,9 +122,24 @@
             <div v-if="selectedPackage" class="mt-2 p-3 bg-green-50 border border-green-200 rounded-md">
               <p class="text-sm font-medium text-green-800">{{ selectedPackage.name }}</p>
               <p class="text-sm text-green-600">Max {{ selectedPackage.user_limit }} pengguna</p>
-              <div class="mt-1">
-                <span class="text-xs text-green-600">Fitur: </span>
-                <span class="text-xs text-green-700">{{ selectedPackage.features?.join(', ') || 'Basic features' }}</span>
+              <div class="mt-1 space-y-1">
+                <div v-if="selectedPackage.features?.description" class="text-xs text-green-700">
+                  {{ selectedPackage.features.description }}
+                </div>
+                <div v-if="hasFeatureDetails" class="flex gap-4 text-xs text-green-600">
+                  <span v-if="selectedPackage.features?.feature_count">
+                    {{ selectedPackage.features.feature_count }} fitur
+                  </span>
+                  <span v-if="selectedPackage.features?.max_outlets">
+                    {{ selectedPackage.features.max_outlets }} outlet
+                  </span>
+                  <span v-if="selectedPackage.features?.max_users">
+                    {{ selectedPackage.features.max_users === 'unlimited' ? 'Unlimited' : selectedPackage.features.max_users }} user
+                  </span>
+                </div>
+                <div v-else class="text-xs text-green-600">
+                  Paket {{ selectedPackage.name.toLowerCase() }} dengan fitur lengkap
+                </div>
               </div>
             </div>
           </div>
@@ -214,7 +231,26 @@ const packages = ref([])
 
 // Computed properties
 const selectedPackage = computed(() => {
-  return packages.value.find(pkg => pkg.id === form.value.packageId) || null
+  const pkg = packages.value.find(pkg => pkg.id === form.value.packageId) || null
+  if (pkg && pkg.features) {
+    // Parse features if it's a JSON string
+    if (typeof pkg.features === 'string') {
+      try {
+        pkg.features = JSON.parse(pkg.features)
+      } catch (e) {
+        console.warn('Failed to parse package features:', e)
+        pkg.features = {}
+      }
+    }
+  }
+  return pkg
+})
+
+const hasFeatureDetails = computed(() => {
+  return selectedPackage.value?.features && 
+         (selectedPackage.value.features.feature_count || 
+          selectedPackage.value.features.max_outlets || 
+          selectedPackage.value.features.max_users)
 })
 
 const isFormValid = computed(() => {
@@ -234,11 +270,30 @@ async function loadPackages() {
     console.log('Loading packages...')
     const packageData = await userStore.getPackages()
     console.log('Package data received:', packageData)
-    packages.value = packageData || []
-    console.log('Packages array set:', packages.value)
+    
+    // Process packages to ensure features are properly parsed
+    if (packageData && Array.isArray(packageData)) {
+      packages.value = packageData.map(pkg => {
+        // Parse features if it's a JSON string
+        if (pkg.features && typeof pkg.features === 'string') {
+          try {
+            pkg.features = JSON.parse(pkg.features)
+          } catch (e) {
+            console.warn('Failed to parse features for package:', pkg.id, e)
+            pkg.features = {}
+          }
+        }
+        return pkg
+      })
+    } else {
+      packages.value = []
+    }
+    
+    console.log('Processed packages:', packages.value)
   } catch (error) {
     console.error('Failed to load packages:', error)
     errorMessage.value = 'Gagal memuat paket. Silakan refresh halaman.'
+    packages.value = []
   } finally {
     packagesLoading.value = false
   }
