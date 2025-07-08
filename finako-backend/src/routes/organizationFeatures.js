@@ -1,11 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const organizationFeaturesController = require('../controllers/organizationFeaturesController');
+const validateAccess = require('../middlewares/validateAccess');
 
-// Middleware validateMembership sudah diterapkan di index.js untuk /api/organization-features
+// Semua user bisa melihat fitur yang aktif
 router.get('/', organizationFeaturesController.getAll);
 router.get('/enabled', organizationFeaturesController.getEnabled);
-router.put('/:featureId', organizationFeaturesController.updateFeature);
-router.post('/:featureId/toggle', organizationFeaturesController.toggle);
+
+// Hanya owner yang boleh update/toggle fitur
+
+router.put('/:featureId', validateAccess({ feature: 'feature_management', roles: ['owner'] }), organizationFeaturesController.updateFeature);
+router.post('/:featureId/toggle', validateAccess({ feature: 'feature_management', roles: ['owner'] }), organizationFeaturesController.toggle);
 
 module.exports = router;

@@ -4,12 +4,19 @@ const salesController = require('../controllers/salesController');
 
 // Middleware validateMembership sudah diterapkan di index.js untuk /api/sales
 
-// Basic CRUD operations
-router.get('/', salesController.getAll);
-router.post('/', salesController.create);
-router.get('/:id', salesController.getById);
-router.put('/:id', salesController.update);
-router.delete('/:id', salesController.remove);
+
+const organizationFeatures = require('../middlewares/organizationFeatures');
+const validateAccess = require('../middlewares/validateAccess');
+
+// Inject fitur aktif ke req
+router.use(organizationFeatures);
+
+// Semua user (owner/staff) bisa lihat dan create sales jika punya fitur 'pos'
+router.get('/', validateAccess({ feature: 'pos', roles: ['owner', 'pegawai'] }), salesController.getAll);
+router.post('/', validateAccess({ feature: 'pos', roles: ['owner', 'pegawai'] }), salesController.create);
+router.get('/:id', validateAccess({ feature: 'pos', roles: ['owner', 'pegawai'] }), salesController.getById);
+router.put('/:id', validateAccess({ feature: 'pos', roles: ['owner'] }), salesController.update);
+router.delete('/:id', validateAccess({ feature: 'pos', roles: ['owner'] }), salesController.remove);
 
 // ===== ENHANCED INTEGRATION ENDPOINTS =====
 

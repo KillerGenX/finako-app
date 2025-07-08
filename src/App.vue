@@ -1,51 +1,29 @@
 <script setup>
-import { onMounted, computed } from 'vue'
 import { useUserStore } from '@/stores/userStore'
-import { useRoute } from 'vue-router'
 import LayoutAuthenticated from '@/layouts/LayoutAuthenticated.vue'
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 
 const userStore = useUserStore()
 const route = useRoute()
 
-// Determine if current route needs authenticated layout
-const needsAuthLayout = computed(() => {
-  return route.meta?.requiresAuth && userStore.isLoggedIn
-})
-
-// Routes that should not use authenticated layout even if requiresAuth is true
-const publicRoutes = ['Login', 'Register', 'RegisterSuccess', 'PaymentInfo', 'Onboarding']
-const isPublicRoute = computed(() => {
-  return publicRoutes.includes(route.name)
-})
-
 const shouldUseAuthLayout = computed(() => {
-  const result = needsAuthLayout.value && !isPublicRoute.value
-  console.log('Layout decision:', {
-    routeName: route.name,
-    needsAuthLayout: needsAuthLayout.value,
-    isPublicRoute: isPublicRoute.value,
-    shouldUseAuthLayout: result,
-    isLoggedIn: userStore.isLoggedIn
-  })
-  return result
-})
-
-onMounted(() => {
-  // Panggil fetchUserProfile saat app pertama kali dimuat
-  userStore.fetchUserProfile()
+  // Tampilkan layout utama jika rute butuh auth DAN BUKAN halaman flow saas
+  const saasFlowRoutes = ['PaymentInfo', 'Onboarding']
+  return route.meta.requiresAuth && !saasFlowRoutes.includes(route.name)
 })
 </script>
 
 <template>
-  <div v-if="!userStore.isReady" class="flex h-screen items-center justify-center">
+  <div v-if="!userStore.isReady" class="flex h-screen items-center justify-center bg-base-300">
     <span class="loading loading-spinner loading-lg"></span>
   </div>
   
-  <!-- Use authenticated layout for protected routes -->
-  <LayoutAuthenticated v-else-if="shouldUseAuthLayout">
-    <router-view />
-  </LayoutAuthenticated>
-  
-  <!-- Use simple layout for public routes -->
-  <router-view v-else />
+  <div v-else>
+    <LayoutAuthenticated v-if="shouldUseAuthLayout">
+      <router-view />
+    </LayoutAuthenticated>
+    
+    <router-view v-else />
+  </div>
 </template>

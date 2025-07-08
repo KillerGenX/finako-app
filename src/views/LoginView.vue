@@ -117,12 +117,10 @@
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
-import { useOrganizationStore } from '@/stores/organizationStore'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
-const organizationStore = useOrganizationStore()
 
 // Form state
 const form = ref({
@@ -143,44 +141,30 @@ async function handleLogin() {
   errorMessage.value = ''
 
   try {
-    // Validate form
-    if (!form.value.email || !form.value.password) {
-      throw new Error('Email dan password harus diisi')
-    }
-
-    // Attempt login
+    // 1. Panggil fungsi login dari store.
     const result = await userStore.loginWithEmailPassword(
       form.value.email.trim(),
       form.value.password
     )
 
+    // 2. Jika berhasil, TUGASNYA SELESAI.
+    // Cukup dorong ke halaman utama. Router Guard yang akan berpikir.
+    // Ia juga akan mengarahkan ke halaman yang dituju jika user mencoba akses halaman lain sebelum login.
     if (result.success) {
-      // Check session and determine redirect
-      const sessionData = await organizationStore.checkSessionAndRedirect(userStore.userId)
-      
-      // Smart redirect based on organization status
-      switch (sessionData.next_step) {
-        case 'payment_info':
-          router.push('/payment-info')
-          break
-        case 'onboarding':
-          router.push('/onboarding')
-          break
-        case 'dashboard':
-        default:
-          router.push('/')
-          break
-      }
+      router.push(route.query.redirect || { name: 'Dashboard' })
     } else {
-      errorMessage.value = result.error || 'Login gagal. Silakan coba lagi.'
+      // Jika login gagal, pesan error diambil dari store.
+      errorMessage.value = result.error?.message || 'Login gagal. Periksa kembali email dan password Anda.'
     }
   } catch (error) {
-    console.error('Login error:', error)
-    errorMessage.value = error.message || 'Terjadi kesalahan. Silakan coba lagi.'
+    // Menangkap error tak terduga
+    console.error('Login component error:', error)
+    errorMessage.value = error.message || 'Terjadi kesalahan tidak terduga.'
   } finally {
     isLoading.value = false
   }
 }
+// --- AKHIR DARI FUNGSI HANDLELOGIN ---
 
 // Initialize page
 onMounted(() => {

@@ -3,27 +3,21 @@ const express = require('express');
 const router = express.Router();
 const salePaymentsController = require('../controllers/salePaymentsController');
 
+
+const organizationFeatures = require('../middlewares/organizationFeatures');
+const validateAccess = require('../middlewares/validateAccess');
+
 // Middleware validateMembership sudah diterapkan di index.js untuk /api/sale-payments
+// Inject active features for feature gating
+router.use(organizationFeatures);
 
-// Get all payments (with optional filters: ?sale_id=123&method=cash)
-router.get('/', salePaymentsController.getAll);
-
-// Get available payment methods
-router.get('/methods', salePaymentsController.getPaymentMethods);
-
-// Get payments for specific sale
-router.get('/sale/:saleId', salePaymentsController.getBySaleId);
-
-// Get payment by ID
-router.get('/:id', salePaymentsController.getById);
-
-// Create new payment
-router.post('/', salePaymentsController.create);
-
-// Update payment
-router.put('/:id', salePaymentsController.update);
-
-// Delete payment
-router.delete('/:id', salePaymentsController.remove);
+// Semua user (owner & staff) bisa melihat dan menambah pembayaran jika fitur multi_payment aktif
+router.get('/', validateAccess({ feature: 'multi_payment', roles: ['owner', 'staff'] }), salePaymentsController.getAll);
+router.get('/methods', validateAccess({ feature: 'multi_payment', roles: ['owner', 'staff'] }), salePaymentsController.getPaymentMethods);
+router.get('/sale/:saleId', validateAccess({ feature: 'multi_payment', roles: ['owner', 'staff'] }), salePaymentsController.getBySaleId);
+router.get('/:id', validateAccess({ feature: 'multi_payment', roles: ['owner', 'staff'] }), salePaymentsController.getById);
+router.post('/', validateAccess({ feature: 'multi_payment', roles: ['owner', 'staff'] }), salePaymentsController.create);
+router.put('/:id', validateAccess({ feature: 'multi_payment', roles: ['owner'] }), salePaymentsController.update);
+router.delete('/:id', validateAccess({ feature: 'multi_payment', roles: ['owner'] }), salePaymentsController.remove);
 
 module.exports = router;

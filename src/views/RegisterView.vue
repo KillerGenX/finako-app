@@ -206,11 +206,9 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useUserStore } from '@/stores/userStore'
 import { useOrganizationStore } from '@/stores/organizationStore'
 
 const router = useRouter()
-const userStore = useUserStore()
 const organizationStore = useOrganizationStore()
 
 // Form state
@@ -266,34 +264,17 @@ const isFormValid = computed(() => {
 // Load packages
 async function loadPackages() {
   packagesLoading.value = true
+  errorMessage.value = ''
   try {
-    console.log('Loading packages...')
-    const packageData = await userStore.getPackages()
-    console.log('Package data received:', packageData)
-    
-    // Process packages to ensure features are properly parsed
-    if (packageData && Array.isArray(packageData)) {
-      packages.value = packageData.map(pkg => {
-        // Parse features if it's a JSON string
-        if (pkg.features && typeof pkg.features === 'string') {
-          try {
-            pkg.features = JSON.parse(pkg.features)
-          } catch (e) {
-            console.warn('Failed to parse features for package:', pkg.id, e)
-            pkg.features = {}
-          }
-        }
-        return pkg
-      })
-    } else {
-      packages.value = []
-    }
-    
-    console.log('Processed packages:', packages.value)
+    // Panggil getPackages dari organizationStore, BUKAN userStore
+    const packageData = await organizationStore.getPackages()
+    packages.value = packageData
+
+    // Set paket pertama sebagai default
+   form.value.packageId = '' 
   } catch (error) {
     console.error('Failed to load packages:', error)
     errorMessage.value = 'Gagal memuat paket. Silakan refresh halaman.'
-    packages.value = []
   } finally {
     packagesLoading.value = false
   }
@@ -301,18 +282,12 @@ async function loadPackages() {
 
 // Handle registration
 async function handleRegister() {
-  if (isLoading.value || !isFormValid.value) return
+  if (!isFormValid.value || isLoading.value) return
   
   isLoading.value = true
   errorMessage.value = ''
 
   try {
-    // Validate password
-    if (form.value.password.length < 6) {
-      throw new Error('Password minimal 6 karakter')
-    }
-
-    // Prepare registration data
     const registrationData = {
       email: form.value.email.trim(),
       password: form.value.password,
@@ -320,30 +295,27 @@ async function handleRegister() {
       ownerName: form.value.ownerName.trim(),
       packageId: form.value.packageId
     }
-
-    // Attempt registration
+    
+    // Panggil aksi registrasi dari store
     const result = await organizationStore.registerTenant(registrationData)
 
     if (result.success) {
-      // Find selected package name
-      const selectedPackage = packages.value.find(pkg => pkg.id === form.value.packageId)
-      
-      // Registration successful, redirect to success page with registration info
+      // Jika berhasil, arahkan ke halaman sukses. Selesai.
       router.push({
-        path: '/register/success',
+        name: 'RegisterSuccess',
         query: {
           email: form.value.email,
           organizationName: form.value.businessName,
-          packageName: selectedPackage?.name || 'Basic',
-          userName: form.value.ownerName
+          packageName: selectedPackage.value.name,
+      userName: form.value.ownerName
         }
       })
-    } else {
-      errorMessage.value = result.error || 'Registrasi gagal. Silakan coba lagi.'
     }
+    // 'else' tidak dibutuhkan karena error akan ditangkap oleh 'catch'
   } catch (error) {
     console.error('Registration error:', error)
-    errorMessage.value = error.message || 'Terjadi kesalahan. Silakan coba lagi.'
+    // Ambil pesan error dari backend jika ada, jika tidak tampilkan pesan umum
+    errorMessage.value = error.data?.error || error.message || 'Terjadi kesalahan saat registrasi.'
   } finally {
     isLoading.value = false
   }

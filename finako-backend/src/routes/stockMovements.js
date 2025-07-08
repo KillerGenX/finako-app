@@ -2,40 +2,26 @@
 const express = require('express');
 const router = express.Router();
 const stockMovementsController = require('../controllers/stockMovementsController');
-
+const validateAccess = require('../middlewares/validateAccess');
 // Middleware validateMembership sudah diterapkan di index.js untuk /api/stock-movements
+const organizationFeatures = require('../middlewares/organizationFeatures');
 
-// Get all movements (with optional filters: ?product_id=123&outlet_id=456&type=sale&start_date=2025-01-01&end_date=2025-01-31)
-router.get('/', stockMovementsController.getAll);
+// Inject fitur aktif ke req
+router.use(organizationFeatures);
 
-// Get movement types
-router.get('/types', stockMovementsController.getMovementTypes);
+// Semua user (owner/staff) bisa lihat pergerakan stok jika punya fitur 'inventory_audit'
+router.get('/', validateAccess({ feature: 'inventory_audit', roles: ['owner', 'pegawai'] }), stockMovementsController.getAll);
+router.get('/types', validateAccess({ feature: 'inventory_audit', roles: ['owner', 'pegawai'] }), stockMovementsController.getMovementTypes);
+router.get('/audit', validateAccess({ feature: 'inventory_audit', roles: ['owner', 'pegawai'] }), stockMovementsController.getAuditReport);
+router.get('/low-stock', validateAccess({ feature: 'stock_alert', roles: ['owner', 'pegawai'] }), stockMovementsController.getLowStock);
+router.get('/product/:productId', validateAccess({ feature: 'inventory_audit', roles: ['owner', 'pegawai'] }), stockMovementsController.getByProductId);
+router.get('/outlet/:outletId', validateAccess({ feature: 'inventory_audit', roles: ['owner', 'pegawai'] }), stockMovementsController.getByOutletId);
+router.get('/product/:productId/summary', validateAccess({ feature: 'inventory_audit', roles: ['owner', 'pegawai'] }), stockMovementsController.getStockSummary);
+router.get('/:id', validateAccess({ feature: 'inventory_audit', roles: ['owner', 'pegawai'] }), stockMovementsController.getById);
 
-// Get audit report
-router.get('/audit', stockMovementsController.getAuditReport);
-
-// Get products with low stock
-router.get('/low-stock', stockMovementsController.getLowStock);
-
-// Get movements by product ID
-router.get('/product/:productId', stockMovementsController.getByProductId);
-
-// Get movements by outlet ID  
-router.get('/outlet/:outletId', stockMovementsController.getByOutletId);
-
-// Get stock summary for a product
-router.get('/product/:productId/summary', stockMovementsController.getStockSummary);
-
-// Get movement by ID
-router.get('/:id', stockMovementsController.getById);
-
-// Create new movement
-router.post('/', stockMovementsController.create);
-
-// Update movement (only note field)
-router.put('/:id', stockMovementsController.update);
-
-// Delete movement (restricted to certain types and recent movements)
-router.delete('/:id', stockMovementsController.remove);
+// Hanya owner yang boleh create/update/delete movement (stock adjustment)
+router.post('/', validateAccess({ feature: 'stock_adjustment', roles: ['owner'] }), stockMovementsController.create);
+router.put('/:id', validateAccess({ feature: 'stock_adjustment', roles: ['owner'] }), stockMovementsController.update);
+router.delete('/:id', validateAccess({ feature: 'stock_adjustment', roles: ['owner'] }), stockMovementsController.remove);
 
 module.exports = router;

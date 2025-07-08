@@ -349,58 +349,52 @@ const isCurrentStepValid = computed(() => {
 
 // Handle form submission
 async function handleSubmit() {
-  if (isLoading.value) return
+  if (isLoading.value) return;
 
-  // If not last step, go to next step
   if (currentStep.value < totalSteps.value) {
-    currentStep.value++
-    return
+    currentStep.value++;
+    return;
   }
 
-  // Final submission
-  isLoading.value = true
-  errorMessage.value = ''
+  isLoading.value = true;
+  errorMessage.value = '';
 
   try {
-    // Prepare onboarding data
-    const onboardingData = { ...form.value }
+    const onboardingData = { ...form.value };
+    // Panggil aksi dari store
+    const result = await organizationStore.completeOnboarding(onboardingData);
 
-    // Submit onboarding
-    const result = await userStore.completeOnboarding(onboardingData)
-
+    // Jika berhasil, cukup arahkan ke Dashboard. Selesai.
     if (result.success) {
-      // Refresh organization data to get updated business profile
-      await organizationStore.refreshOrganizationData()
-      
-      // Clear cache timestamp to force fresh data on next router check
-      organizationStore.lastFetchTime = null
-      
-      // Onboarding successful, redirect to dashboard
-      router.push('/')
-    } else {
-      errorMessage.value = result.error || 'Setup gagal. Silakan coba lagi.'
+      router.push({ name: 'Dashboard' });
     }
   } catch (error) {
-    console.error('Onboarding error:', error)
-    errorMessage.value = error.message || 'Terjadi kesalahan. Silakan coba lagi.'
+    console.error('Onboarding error:', error);
+    errorMessage.value = error.message || 'Terjadi kesalahan saat menyimpan data.';
   } finally {
-    isLoading.value = false
+    isLoading.value = false;
   }
 }
 
 // Handle logout
 async function handleLogout() {
-  if (isLoggingOut.value) return
+  if (isLoggingOut.value) return;
   
-  isLoggingOut.value = true
-  
+  isLoggingOut.value = true;
   try {
-    await userStore.logout()
-    router.push('/login')
+    const success = await userStore.logout();
+    
+    // HANYA jika logout di store berhasil, komponen melakukan redirect
+    if (success) {
+      router.push('/login');
+    } else {
+      userStore.showNotification('Logout gagal, silakan coba lagi.', 'error');
+    }
   } catch (error) {
-    console.error('Logout failed:', error)
+    console.error('Logout failed on onboarding view:', error);
   } finally {
-    isLoggingOut.value = false
+    // Pastikan loading state selalu mati apa pun yang terjadi
+    isLoggingOut.value = false;
   }
 }
 

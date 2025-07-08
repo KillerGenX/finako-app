@@ -574,14 +574,19 @@ const hasAnyCoreFeature = (features) => {
 async function handleLogout() {
   if (confirm("Apakah Anda yakin ingin keluar?")) {
     try {
-      await supabase.auth.signOut()
-      userStore.clearUserProfile()
-      router.push("/login")
+      // Cukup panggil satu fungsi terpusat dari store
+      const success = await userStore.logout();
+      
+      if (success) {
+        // Biarkan komponen yang bertanggung jawab untuk navigasi
+        // Ini akan secara otomatis mengarahkan ke halaman login karena state sudah di-clear
+        router.push('/login'); 
+      } else {
+        // Handle jika logout di store gagal (jarang terjadi)
+        alert('Proses logout gagal, silakan coba lagi.');
+      }
     } catch (error) {
-      console.error('Logout error:', error)
-      // Force logout even if Supabase fails
-      userStore.clearUserProfile()
-      router.push("/login")
+      console.error('Logout error from sidebar:', error);
     }
   }
 }

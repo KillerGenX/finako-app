@@ -16,7 +16,9 @@
       <div class="mb-6 p-4 bg-gray-50 rounded-lg">
         <p class="text-sm text-gray-600 mb-1">Akun berhasil dibuat untuk:</p>
         <p class="font-semibold text-gray-900">{{ registrationData.email }}</p>
-        <p class="text-sm text-gray-600 mt-2">Organisasi: {{ registrationData.organizationName }}</p>
+        <p class="text-sm text-gray-600 mb-1">Nama Pemilik Bisnis:</p>
+        <p class="font-semibold text-gray-900">{{ registrationData.userName }}</p>
+        <p class="text-sm text-gray-600 mt-2">Nama Bisnis: {{ registrationData.organizationName }}</p>
         <div class="mt-2 inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
           <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
             <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -89,11 +91,9 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useUserStore } from '@/stores/userStore'
 
 const router = useRouter()
 const route = useRoute()
-const userStore = useUserStore()
 
 // Registration data from query params or store
 const registrationData = ref({
