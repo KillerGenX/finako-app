@@ -2,22 +2,17 @@
 
 import { useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { Bell, ChevronDown, Loader2 } from 'lucide-react';
+import { Bell, ChevronDown, Loader2, Menu } from 'lucide-react';
 import { logout } from '@/app/auth/actions';
 
-// --- Placeholder UI Components for dropdown functionality ---
+// (Placeholder components remain the same)
 const DropdownMenu = ({ children }: { children: React.ReactNode }) => <div className="relative inline-block text-left">{children}</div>;
 const DropdownMenuTrigger = ({ children, onClick }: { children: React.ReactNode, onClick: () => void }) => <button onClick={onClick}>{children}</button>;
 const DropdownMenuContent = ({ children, className }: { children: React.ReactNode, className?: string }) => <div className={`origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none ${className}`}>{children}</div>;
 const DropdownMenuItem = ({ children }: { children: React.ReactNode }) => <div className="px-1 py-1">{children}</div>;
-// --- End Placeholder UI Components ---
 
-// A new component specifically for the logout button
-// This is necessary because useFormStatus() only works on components
-// that are direct children of a <form> element.
 function LogoutButton() {
     const { pending } = useFormStatus();
-
     return (
         <button 
             type="submit" 
@@ -36,12 +31,20 @@ function LogoutButton() {
     );
 }
 
-
-export default function Header({ userInitials }: { userInitials: string }) {
+// Header now accepts toggleSidebar function
+export default function Header({ userInitials, toggleSidebar }: { userInitials: string; toggleSidebar: () => void; }) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     return (
         <header className="flex h-14 items-center gap-4 border-b bg-white dark:bg-gray-950 px-4 lg:h-[60px] lg:px-6">
+            {/* ▼▼▼ TOMBOL MENU BARU ▼▼▼ */}
+            <button
+                onClick={toggleSidebar}
+                className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 md:hidden" // Hanya terlihat di mobile untuk membuka sidebar
+            >
+                <Menu className="h-6 w-6 text-gray-500 dark:text-gray-400" />
+                <span className="sr-only">Toggle sidebar</span>
+            </button>
             <div className="w-full flex-1">
                 {/* Search bar can be added here */}
             </div>
