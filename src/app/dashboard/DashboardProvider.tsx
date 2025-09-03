@@ -29,14 +29,14 @@ const Sidebar = () => {
     ];
 
     return (
-        <aside className={`transition-all duration-300 ease-in-out border-r bg-gray-100/40 dark:bg-gray-800/40 hidden md:flex flex-col ${isCollapsed ? 'w-20' : 'w-64'}`}>
+        // ▼▼▼ LEBAR SIDEBAR DIKECILKAN LAGI (w-56 -> w-48) ▼▼▼
+        <aside className={`transition-all duration-300 ease-in-out border-r bg-gray-100/40 dark:bg-gray-800/40 hidden md:flex flex-col ${isCollapsed ? 'w-20' : 'w-48'}`}>
              <div className="flex h-14 items-center justify-center border-b px-4 lg:h-[60px] lg:px-6">
                 <Link href="/dashboard" className="flex items-center justify-center font-semibold">
                     <img 
                         src="/finako.svg" 
                         alt="Finako Logo" 
-                        // ▼▼▼ UKURAN DIPERBESAR DI SINI ▼▼▼
-                        className={`transition-all duration-300 ${isCollapsed ? 'h-15 w-15' : 'h-25 w-25'}`} 
+                        className={`transition-all duration-300 ${isCollapsed ? 'h-8 w-8' : 'h-9 w-9'}`} // Disesuaikan
                     />
                 </Link>
             </div>
@@ -75,9 +75,9 @@ export default function DashboardProvider({ children, userInitials }: { children
 
     return (
         <SidebarContext.Provider value={{ isCollapsed, toggleSidebar }}>
-            <div className="flex min-h-screen w-full">
+            <div className="grid min-h-screen w-full md:grid-cols-[auto_1fr]">
                 <Sidebar />
-                <div className="flex flex-col flex-grow">
+                <div className="flex flex-col">
                     <Header userInitials={userInitials} toggleSidebar={toggleSidebar} />
                     {children}
                 </div>
