@@ -68,21 +68,21 @@ export default function RegisterPage() {
     
     setLoading(true);
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        // Kirim data tambahan yang akan ditangkap oleh trigger
-        data: {
-          full_name: fullName,
-        }
+        data: { full_name: fullName }
       }
     });
 
     if (error) {
       setError(error.message);
-    } else {
-      // Redirect ke halaman konfirmasi
+    } else if (data.user) {
+      // Langsung logout setelah sign up berhasil untuk menghapus sesi sementara.
+      await supabase.auth.signOut();
+      
+      // Arahkan ke halaman konfirmasi
       router.push('/auth/confirm');
     }
 
