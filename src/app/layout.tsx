@@ -15,8 +15,11 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 
 // Metadata (bisa Anda ubah)
 export const metadata: Metadata = {
-  title: "Finako",
+  title: "Finako App",
   description: "Business Operating System for MSMEs",
+  icons: {
+    icon: "/finako.svg",
+  },
 };
 
 export default function RootLayout({
