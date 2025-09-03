@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { CheckCircle2, Sparkles } from 'lucide-react';
 import Link from 'next/link';
+import { redirect } from 'next/navigation'; // Import redirect
 
 const formatPrice = (price: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -19,7 +20,6 @@ const calculateDaysLeft = (endDate: string | null) => {
     return Math.max(0, Math.ceil(difference / (1000 * 60 * 60 * 24)));
 };
 
-
 export default async function BillingPage() {
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -28,21 +28,41 @@ export default async function BillingPage() {
         { cookies: { get: (name) => cookieStore.get(name)?.value } }
     );
 
+    const { data: { user } } = await supabase.auth.getUser();
+    let currentSubscription = null;
+    let organizationId = null;
+
+    if (user) {
+        const { data: member } = await supabase.from('organization_members').select('organization_id').eq('user_id', user.id).single();
+        if (member) {
+            organizationId = member.organization_id;
+            const { data: subData } = await supabase.from('subscriptions').select('*, subscription_plans(*)').eq('organization_id', organizationId).single();
+            currentSubscription = subData;
+        }
+    }
+
+    // ▼▼▼ LOGIKA BARU UNTUK MEMERIKSA INVOICE TERTUNDA ▼▼▼
+    if (organizationId) {
+        const { data: pendingInvoice } = await supabase
+            .from('invoices')
+            .select('id')
+            .eq('organization_id', organizationId)
+            .in('status', ['pending', 'awaiting_confirmation'])
+            .maybeSingle(); // Ambil satu jika ada
+
+        if (pendingInvoice) {
+            // Jika ada, langsung alihkan ke halaman pembayaran
+            redirect(`/dashboard/billing/payment/${pendingInvoice.id}`);
+        }
+    }
+    // ▲▲▲ AKHIR DARI LOGIKA BARU ▲▲▲
+
+
     const { data: plans, error: plansError } = await supabase
         .from('subscription_plans')
         .select('*')
         .eq('is_active', true)
         .order('price', { ascending: true });
-
-    const { data: { user } } = await supabase.auth.getUser();
-    let currentSubscription = null;
-    if (user) {
-        const { data: member } = await supabase.from('organization_members').select('organization_id').eq('user_id', user.id).single();
-        if (member) {
-            const { data: subData } = await supabase.from('subscriptions').select('*, subscription_plans(*)').eq('organization_id', member.organization_id).single();
-            currentSubscription = subData;
-        }
-    }
 
     if (plansError) {
         return <div className="text-red-500">Error loading subscription plans.</div>;
@@ -82,7 +102,6 @@ export default async function BillingPage() {
                             <p className="mt-2 text-gray-500 dark:text-gray-400 min-h-[40px]">{plan.description}</p>
                             
                             <div className="mt-6 flex flex-nowrap items-baseline gap-x-2">
-                                {/* ▼▼▼ PERBAIKAN FINAL: UKURAN FONT DIKECILKAN ▼▼▼ */}
                                 <span className="text-4xl font-extrabold">{formatPrice(plan.price)}</span>
                                 <span className="text-lg font-medium text-gray-500 dark:text-gray-400">/{plan.billing_interval}</span>
                             </div>
@@ -112,13 +131,17 @@ export default async function BillingPage() {
                                         <p className="font-semibold text-teal-600 dark:text-teal-400">Paket Anda Saat Ini</p>
                                         <p className="text-sm text-gray-500 mt-1">{trialDaysLeft} hari tersisa</p>
                                     </div>
+                                ) : isComingSoon ? (
+                                    <span className="block w-full text-center px-4 py-3 rounded-lg bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed font-semibold">
+                                        Segera Hadir
+                                    </span>
                                 ) : (
-                                    <button
-                                        disabled={isComingSoon}
-                                        className="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 rounded-lg transition-colors duration-300 disabled:bg-gray-300 disabled:dark:bg-gray-700 disabled:cursor-not-allowed"
+                                    <Link
+                                        href={`/dashboard/billing/checkout?planId=${plan.id}`}
+                                        className="block w-full text-center px-4 py-3 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-semibold transition-colors duration-300"
                                     >
-                                        {isComingSoon ? 'Segera Hadir' : 'Pilih Paket'}
-                                    </button>
+                                        Pilih Paket
+                                    </Link>
                                 )}
                             </div>
                         </div>

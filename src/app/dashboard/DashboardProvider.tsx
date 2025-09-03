@@ -3,7 +3,7 @@
 import { useState, createContext, useContext, ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, ShoppingCart, Package, Users, LineChart, Settings, ChevronLeft } from 'lucide-react';
+import { Home, ShoppingCart, Package, Users, LineChart, Settings, ChevronLeft, CreditCard } from 'lucide-react'; // Import CreditCard icon
 import Header from './Header';
 
 // Konteks untuk berbagi state sidebar
@@ -25,18 +25,19 @@ const Sidebar = () => {
         { href: "/dashboard/products", icon: Package, label: "Produk" },
         { href: "/dashboard/customers", icon: Users, label: "Pelanggan" },
         { href: "/dashboard/reports", icon: LineChart, label: "Laporan" },
+        // ▼▼▼ MENU BARU DITAMBAHKAN DI SINI ▼▼▼
+        { href: "/dashboard/billing", icon: CreditCard, label: "Langganan" },
         { href: "/dashboard/settings", icon: Settings, label: "Pengaturan" },
     ];
 
     return (
-        // ▼▼▼ LEBAR SIDEBAR DIKECILKAN LAGI (w-56 -> w-48) ▼▼▼
         <aside className={`transition-all duration-300 ease-in-out border-r bg-gray-100/40 dark:bg-gray-800/40 hidden md:flex flex-col ${isCollapsed ? 'w-20' : 'w-48'}`}>
              <div className="flex h-14 items-center justify-center border-b px-4 lg:h-[60px] lg:px-6">
                 <Link href="/dashboard" className="flex items-center justify-center font-semibold">
                     <img 
                         src="/finako.svg" 
                         alt="Finako Logo" 
-                        className={`transition-all duration-300 ${isCollapsed ? 'h-8 w-8' : 'h-9 w-9'}`} // Disesuaikan
+                        className={`transition-all duration-300 ${isCollapsed ? 'h-8 w-8' : 'h-9 w-9'}`}
                     />
                 </Link>
             </div>
@@ -44,7 +45,7 @@ const Sidebar = () => {
             <div className="flex-1 overflow-y-auto scrollbar-hide">
                 <nav className="grid items-start px-2 text-sm font-medium lg:px-4 py-4">
                     {navLinks.map(({ href, icon: Icon, label }) => (
-                        <Link key={href} href={href} title={label} className={`flex items-center gap-4 rounded-lg px-3 py-3 my-1 transition-all hover:text-teal-600 dark:hover:text-teal-400 ${pathname === href ? 'bg-gray-200 dark:bg-gray-700 text-teal-600 dark:text-teal-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                        <Link key={href} href={href} title={label} className={`flex items-center gap-4 rounded-lg px-3 py-3 my-1 transition-all hover:text-teal-600 dark:hover:text-teal-400 ${pathname.startsWith(href) && href !== "/dashboard" || pathname === href ? 'bg-gray-200 dark:bg-gray-700 text-teal-600 dark:text-teal-400' : 'text-gray-500 dark:text-gray-400'}`}>
                             <Icon className="h-5 w-5 flex-shrink-0" />
                             <span className={`overflow-hidden transition-opacity whitespace-nowrap ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}>{label}</span>
                         </Link>
