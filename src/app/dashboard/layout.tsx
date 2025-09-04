@@ -4,7 +4,6 @@ import { Info, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import DashboardProvider from './DashboardProvider'; 
 
-// ▼▼▼ KOMPONEN BANNER YANG DIPERBARUI DAN LEBIH CERDAS ▼▼▼
 const SubscriptionBanner = ({ message, variant, actionText, actionLink }: {
     message: string;
     variant: 'teal' | 'yellow';
@@ -47,6 +46,7 @@ export default async function DashboardLayout({
     
     let userInitials = '??';
     let subscription = null;
+    let notificationCount = 0;
 
     if (user) {
         const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
@@ -60,6 +60,13 @@ export default async function DashboardLayout({
             const { data: subData } = await supabase.from('subscriptions').select('status, trial_ends_at, current_period_end').eq('organization_id', member.organization_id).single();
             subscription = subData;
         }
+
+        const { count } = await supabase
+            .from('user_notifications')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .eq('is_read', false);
+        notificationCount = count || 0;
     }
 
     const calculateDaysLeft = (endDate: string | null) => {
@@ -69,44 +76,26 @@ export default async function DashboardLayout({
         return Math.ceil((end - now) / (1000 * 60 * 60 * 24));
     };
 
-    // ▼▼▼ LOGIKA NOTIFIKASI DINAMIS ▼▼▼
     let notification = null;
     if (subscription) {
         if (subscription.status === 'trialing') {
             const daysLeft = calculateDaysLeft(subscription.trial_ends_at);
             if (daysLeft >= 0) {
                 const isUrgent = daysLeft <= 7;
-                notification = {
-                    message: `Masa percobaan Anda ${isUrgent ? 'akan berakhir dalam' : 'tersisa'} ${daysLeft} hari lagi.`,
-                    variant: isUrgent ? 'yellow' : 'teal',
-                    actionText: 'Upgrade Sekarang',
-                    actionLink: '/dashboard/billing'
-                };
+                notification = { message: `Masa percobaan Anda ${isUrgent ? 'akan berakhir dalam' : 'tersisa'} ${daysLeft} hari lagi.`, variant: isUrgent ? 'yellow' : 'teal', actionText: 'Upgrade Sekarang', actionLink: '/dashboard/billing' };
             }
         } else if (subscription.status === 'active') {
             const daysLeft = calculateDaysLeft(subscription.current_period_end);
             if (daysLeft >= 0 && daysLeft <= 7) {
-                 notification = {
-                    message: `Langganan Anda akan berakhir dalam ${daysLeft} hari.`,
-                    variant: 'yellow',
-                    actionText: 'Perpanjang Sekarang',
-                    actionLink: '/dashboard/billing'
-                };
+                 notification = { message: `Langganan Anda akan berakhir dalam ${daysLeft} hari.`, variant: 'yellow', actionText: 'Perpanjang Sekarang', actionLink: '/dashboard/billing' };
             }
         }
     }
     
     return (
-        <DashboardProvider userInitials={userInitials.toUpperCase()}>
+        <DashboardProvider userInitials={userInitials.toUpperCase()} notificationCount={notificationCount}>
             <main className="flex flex-col flex-1 gap-4 p-4 lg:gap-6 lg:p-6 bg-gray-50/50 dark:bg-gray-900/50 overflow-auto">
-                {notification && (
-                    <SubscriptionBanner 
-                        message={notification.message}
-                        variant={notification.variant as 'teal' | 'yellow'}
-                        actionText={notification.actionText}
-                        actionLink={notification.actionLink}
-                    />
-                )}
+                {notification && <SubscriptionBanner message={notification.message} variant={notification.variant as 'teal' | 'yellow'} actionText={notification.actionText} actionLink={notification.actionLink} />}
                 {children}
             </main>
         </DashboardProvider>

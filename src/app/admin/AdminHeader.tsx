@@ -1,17 +1,16 @@
 "use client";
 
-import { useState, useEffect, useRef, useTransition } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { useFormStatus } from 'react-dom';
 import { Bell, ChevronDown, Loader2, Menu } from 'lucide-react';
 import { logout } from '@/app/auth/actions';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabaseClient';
-import { markNotificationsAsRead } from './actions';
 
+// Dropdown components
 const DropdownMenu = ({ children }: { children: React.ReactNode }) => <div className="relative inline-block text-left">{children}</div>;
 const DropdownMenuTrigger = ({ children, onClick }: { children: React.ReactNode, onClick: () => void }) => <button type="button" onClick={onClick}>{children}</button>;
-const DropdownMenuContent = ({ children, className }: { children: React.ReactNode, className?: string }) => <div className={`origin-top-right absolute right-0 mt-2 w-72 md:w-80 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none ${className}`}>{children}</div>;
+const DropdownMenuContent = ({ children, className }: { children: React.ReactNode, className?: string }) => <div className={`origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none ${className}`}>{children}</div>;
 const DropdownMenuItem = ({ children }: { children: React.ReactNode }) => <div className="px-1 py-1">{children}</div>;
 
 function LogoutButton() {
@@ -23,74 +22,43 @@ function LogoutButton() {
     );
 }
 
-export default function Header({ userInitials, toggleSidebar, notificationCount: initialCount = 0 }: { 
+// Ini adalah Header KHUSUS untuk Admin
+export default function AdminHeader({ userInitials, toggleSidebar, notificationCount = 0 }: { 
     userInitials: string; 
     toggleSidebar: () => void;
     notificationCount?: number;
 }) {
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
-    const [notifications, setNotifications] = useState<any[]>([]);
-    const [notificationCount, setNotificationCount] = useState(initialCount);
     
     const userMenuRef = useRef<HTMLDivElement>(null);
     const notificationMenuRef = useRef<HTMLDivElement>(null);
     const pathname = usePathname();
-    const supabase = createClient();
-    const [isPending, startTransition] = useTransition();
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            // ▼▼▼ TYPO DIPERBAIKI DI SINI ▼▼▼
-            if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
-                setIsUserMenuOpen(false);
-            }
-            if (notificationMenuRef.current && !notificationMenuRef.current.contains(event.target as Node)) {
-                setIsNotificationMenuOpen(false);
-            }
+            if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) setIsUserMenuOpen(false);
+            if (notificationMenuRef.current && !notificationMenuRef.current.contains(event.target as Node)) setIsNotificationMenuOpen(false);
         };
-        if (isUserMenuOpen || isNotificationMenuOpen) {
-            document.addEventListener('mousedown', handleClickOutside);
-        }
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
+        if (isUserMenuOpen || isNotificationMenuOpen) document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isUserMenuOpen, isNotificationMenuOpen]);
 
     useEffect(() => {
         setIsUserMenuOpen(false);
         setIsNotificationMenuOpen(false);
     }, [pathname]);
-    
-    const handleNotificationMenuToggle = () => {
-        const willOpen = !isNotificationMenuOpen;
-        setIsNotificationMenuOpen(willOpen);
-
-        if (willOpen && notificationCount > 0) {
-            startTransition(async () => {
-                const { data } = await supabase
-                    .from('user_notifications')
-                    .select('*')
-                    .eq('is_read', false)
-                    .order('created_at', { ascending: false });
-                setNotifications(data || []);
-                
-                await markNotificationsAsRead();
-                setNotificationCount(0);
-            });
-        } else if (willOpen) {
-             setNotifications([]);
-        }
-    };
 
     return (
         <header className="flex h-14 items-center gap-4 border-b bg-white dark:bg-gray-900 px-4 lg:h-[60px] lg:px-6">
-            <button onClick={toggleSidebar} className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 md:hidden"><Menu className="h-6 w-6 text-gray-500 dark:text-gray-400" /></button>
+            <button onClick={toggleSidebar} className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 md:hidden">
+                <Menu className="h-6 w-6 text-gray-500 dark:text-gray-400" />
+            </button>
             <div className="w-full flex-1"></div>
 
             <div ref={notificationMenuRef}>
                 <DropdownMenu>
-                    <DropdownMenuTrigger onClick={handleNotificationMenuToggle}>
+                    <DropdownMenuTrigger onClick={() => setIsNotificationMenuOpen(!isNotificationMenuOpen)}>
                         <div className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
                             <Bell className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                             {notificationCount > 0 && (
@@ -100,18 +68,8 @@ export default function Header({ userInitials, toggleSidebar, notificationCount:
                     </DropdownMenuTrigger>
                     {isNotificationMenuOpen && (
                         <DropdownMenuContent>
-                            <div className="p-3 font-semibold text-sm border-b dark:border-gray-700">Notifikasi</div>
-                            {isPending ? (
-                                <div className="flex justify-center items-center p-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
-                            ) : notifications.length > 0 ? (
-                                notifications.map(notif => (
-                                    <DropdownMenuItem key={notif.id}>
-                                        <Link href={notif.link || '#'} className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
-                                            <p className="font-medium">{notif.message}</p>
-                                            <p className="text-xs text-gray-400 mt-1">{new Date(notif.created_at).toLocaleString('id-ID')}</p>
-                                        </Link>
-                                    </DropdownMenuItem>
-                                ))
+                            {notificationCount > 0 ? (
+                                <DropdownMenuItem><Link href="/admin/billing" className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Ada <strong>{notificationCount}</strong> pembayaran menunggu verifikasi.</Link></DropdownMenuItem>
                             ) : (
                                 <DropdownMenuItem><div className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">Tidak ada notifikasi baru.</div></DropdownMenuItem>
                             )}

@@ -561,5 +561,35 @@ CREATE INDEX IF NOT EXISTS idx_invoices_status ON public.invoices(status);
 
 
 -- =================================================================
+
+
+-- Supabase User Notifications Table Setup for Finako App
+-- =================================================================
+--
+--  Tujuan: 
+--  Membuat tabel `user_notifications` untuk menyimpan notifikasi
+--  yang akan ditampilkan kepada pengguna di dasbor mereka.
+--
+--  Instruksi: Jalankan skrip ini di SQL Editor Supabase Anda.
+--
+-- =================================================================
+
+CREATE TABLE IF NOT EXISTS public.user_notifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    message TEXT NOT NULL,
+    link TEXT, -- Link opsional, misal ke halaman billing
+    is_read BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Tambahkan komentar untuk menjelaskan tujuan tabel
+COMMENT ON TABLE public.user_notifications IS 'Menyimpan notifikasi individual untuk setiap pengguna.';
+
+-- Tambahkan index untuk performa query
+CREATE INDEX IF NOT EXISTS idx_user_notifications_user_id ON public.user_notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_notifications_is_read ON public.user_notifications(is_read);
+
+-- =================================================================
 -- Akhir dari skrip.
 -- =================================================================

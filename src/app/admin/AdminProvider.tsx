@@ -3,8 +3,8 @@
 import { useState, createContext, useContext, ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, ShieldCheck, ChevronLeft, CreditCard, History } from 'lucide-react'; // Import History icon
-import Header from '@/app/dashboard/Header'; 
+import { Home, ShieldCheck, ChevronLeft, CreditCard, History } from 'lucide-react';
+import AdminHeader from './AdminHeader'; // ▼▼▼ GANTI IMPORT KE HEADER BARU ▼▼▼
 
 const AdminSidebarContext = createContext({
     isCollapsed: false,
@@ -18,7 +18,6 @@ const AdminSidebar = () => {
     const navLinks = [
         { href: "/admin/dashboard", icon: Home, label: "Dashboard" },
         { href: "/admin/billing", icon: CreditCard, label: "Verifikasi Pembayaran" },
-        // ▼▼▼ MENU BARU DITAMBAHKAN DI SINI ▼▼▼
         { href: "/admin/history", icon: History, label: "Histori Pembayaran" },
     ];
 
@@ -47,9 +46,7 @@ const AdminSidebar = () => {
                     className="flex items-center justify-center w-full gap-4 rounded-lg px-3 py-3 text-gray-500 dark:text-gray-400 transition-all hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-50"
                 >
                     <ChevronLeft className={`h-6 w-6 transition-transform duration-300 flex-shrink-0 ${isCollapsed ? 'rotate-180' : ''}`} />
-                    <span className={`overflow-hidden transition-opacity whitespace-nowrap ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}>
-                        {isCollapsed ? '' : 'Collapse'}
-                    </span>
+                    <span className={`overflow-hidden transition-opacity whitespace-nowrap ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}>{isCollapsed ? '' : 'Collapse'}</span>
                 </button>
             </div>
         </aside>
@@ -69,7 +66,8 @@ export default function AdminProvider({ children, userInitials, notificationCoun
             <div className="grid min-h-screen w-full md:grid-cols-[auto_1fr]">
                 <AdminSidebar />
                 <div className="flex flex-col">
-                    <Header userInitials={userInitials} toggleSidebar={toggleSidebar} notificationCount={notificationCount} />
+                    {/* ▼▼▼ GUNAKAN ADMIN HEADER DI SINI ▼▼▼ */}
+                    <AdminHeader userInitials={userInitials} toggleSidebar={toggleSidebar} notificationCount={notificationCount} />
                     {children}
                 </div>
             </div>

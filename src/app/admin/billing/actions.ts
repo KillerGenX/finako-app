@@ -4,7 +4,6 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
-// ▼▼▼ FUNGSI DIPERBARUI AGAR TIDAK MENGEMBALIKAN NILAI (RETURN VOID) ▼▼▼
 export async function rejectPayment(invoiceId: string): Promise<void> {
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -13,16 +12,29 @@ export async function rejectPayment(invoiceId: string): Promise<void> {
         { cookies: { get: (name) => cookieStore.get(name)?.value } }
     );
     
-    const { error } = await supabase
+    const { data: invoice, error: invoiceError } = await supabase
+        .from('invoices')
+        .select('user_id')
+        .eq('id', invoiceId)
+        .single();
+        
+    if (invoiceError || !invoice) {
+        console.error('Invoice not found during rejection.');
+        return;
+    }
+
+    await supabase
         .from('invoices')
         .update({ status: 'failed' })
         .eq('id', invoiceId);
-
-    if (error) {
-        console.error('Reject Payment Error:', error);
-        // Di sini kita bisa throw error jika ingin, tapi untuk sekarang cukup log.
-        return;
-    }
     
+    // ▼▼▼ LOGIKA BARU: BUAT NOTIFIKASI UNTUK PENGGUNA ▼▼▼
+    await supabase.from('user_notifications').insert({
+        user_id: invoice.user_id,
+        message: `Pembayaran Anda untuk invoice #${invoiceId.substring(0, 8)} ditolak. Silakan hubungi dukungan jika Anda merasa ini adalah kesalahan.`,
+        link: '/dashboard/billing'
+    });
+
+    revalidatePath('/dashboard', 'layout'); // Revalidasi layout dashboard untuk notifikasi
     revalidatePath('/admin/billing');
 }

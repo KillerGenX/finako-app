@@ -4,7 +4,6 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
-// ▼▼▼ FUNGSI DIPERBARUI AGAR TIDAK MENGEMBALIKAN NILAI (RETURN VOID) ▼▼▼
 export async function confirmManualPayment(invoiceId: string): Promise<void> {
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -21,7 +20,7 @@ export async function confirmManualPayment(invoiceId: string): Promise<void> {
         
     if (invoiceError || !invoice) {
         console.error('Invoice not found during confirmation.');
-        return; // Keluar jika invoice tidak ditemukan
+        return;
     }
 
     const { data: currentSubscription, error: subSelectError } = await supabase
@@ -55,22 +54,23 @@ export async function confirmManualPayment(invoiceId: string): Promise<void> {
 
     if (subError) {
         console.error("Failed to update subscription:", subError);
-        // Di sini kita bisa throw error jika ingin form menangkapnya, tapi untuk sekarang cukup log.
         return;
     }
 
-    const { error: invoiceUpdateError } = await supabase
+    await supabase
         .from('invoices')
         .update({ status: 'paid' })
         .eq('id', invoiceId);
         
-    if (invoiceUpdateError) {
-        console.error("Failed to update invoice status:", invoiceUpdateError);
-    }
+    // ▼▼▼ LOGIKA BARU: BUAT NOTIFIKASI UNTUK PENGGUNA ▼▼▼
+    await supabase.from('user_notifications').insert({
+        user_id: invoice.user_id,
+        message: `Pembayaran Anda untuk invoice #${invoice.id.substring(0, 8)} telah disetujui. Langganan Anda sekarang aktif.`,
+        link: '/dashboard/billing'
+    });
     
-    revalidatePath('/dashboard/billing');
-    revalidatePath('/dashboard');
-    revalidatePath('/admin/billing'); // Revalidasi halaman admin juga
+    revalidatePath('/dashboard', 'layout'); // Revalidasi layout dashboard untuk notifikasi
+    revalidatePath('/admin/billing');
 }
 
 // (Fungsi uploadProof tetap sama)
