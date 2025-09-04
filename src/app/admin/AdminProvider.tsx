@@ -3,7 +3,7 @@
 import { useState, createContext, useContext, ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, ShieldCheck, ChevronLeft, CreditCard } from 'lucide-react';
+import { Home, ShieldCheck, ChevronLeft, CreditCard, History } from 'lucide-react'; // Import History icon
 import Header from '@/app/dashboard/Header'; 
 
 const AdminSidebarContext = createContext({
@@ -18,6 +18,8 @@ const AdminSidebar = () => {
     const navLinks = [
         { href: "/admin/dashboard", icon: Home, label: "Dashboard" },
         { href: "/admin/billing", icon: CreditCard, label: "Verifikasi Pembayaran" },
+        // ▼▼▼ MENU BARU DITAMBAHKAN DI SINI ▼▼▼
+        { href: "/admin/history", icon: History, label: "Histori Pembayaran" },
     ];
 
     return (
@@ -54,7 +56,6 @@ const AdminSidebar = () => {
     );
 };
 
-// ▼▼▼ PROPS BARU DITAMBAHKAN DI SINI ▼▼▼
 export default function AdminProvider({ children, userInitials, notificationCount }: { 
     children: ReactNode; 
     userInitials: string;
