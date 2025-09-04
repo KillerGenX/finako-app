@@ -1,24 +1,35 @@
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
-import { Info } from 'lucide-react';
+import { Info, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import DashboardProvider from './DashboardProvider'; 
 
-const TrialBanner = ({ daysLeft }: { daysLeft: number }) => {
-    if (daysLeft < 0) return null;
-    const message = daysLeft > 1 ? `Sisa masa percobaan Anda ${daysLeft} hari lagi.` : (daysLeft === 1 ? 'Ini hari terakhir masa percobaan Anda.' : 'Masa percobaan Anda telah berakhir.');
+// ▼▼▼ KOMPONEN BANNER YANG DIPERBARUI DAN LEBIH CERDAS ▼▼▼
+const SubscriptionBanner = ({ message, variant, actionText, actionLink }: {
+    message: string;
+    variant: 'teal' | 'yellow';
+    actionText: string;
+    actionLink: string;
+}) => {
+    const isWarning = variant === 'yellow';
+    const bgColor = isWarning ? 'bg-yellow-50 dark:bg-yellow-900/30' : 'bg-teal-50 dark:bg-teal-900/30';
+    const borderColor = isWarning ? 'border-yellow-200 dark:border-yellow-700' : 'border-teal-200 dark:border-teal-700';
+    const textColor = isWarning ? 'text-yellow-800 dark:text-yellow-200' : 'text-teal-800 dark:text-teal-200';
+    const Icon = isWarning ? AlertTriangle : Info;
+
     return (
-        <div className="bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-700 text-teal-800 dark:text-teal-200 text-sm rounded-lg p-4 flex items-center">
-            <Info className="h-5 w-5 mr-3 flex-shrink-0" />
+        <div className={`${bgColor} ${borderColor} ${textColor} border text-sm rounded-lg p-4 flex items-center`}>
+            <Icon className="h-5 w-5 mr-3 flex-shrink-0" />
             <div className="flex-grow">
                 <span>{message}</span>
-                <Link href="/dashboard/billing" className="ml-2 font-bold underline hover:text-teal-600 dark:hover:text-teal-100">
-                    Upgrade Sekarang
+                <Link href={actionLink} className="ml-2 font-bold underline hover:opacity-80">
+                    {actionText}
                 </Link>
             </div>
         </div>
     );
 };
+
 
 export default async function DashboardLayout({
   children,
@@ -46,7 +57,7 @@ export default async function DashboardLayout({
 
         const { data: member } = await supabase.from('organization_members').select('organization_id').eq('user_id', user.id).single();
         if (member) {
-            const { data: subData } = await supabase.from('subscriptions').select('status, trial_ends_at').eq('organization_id', member.organization_id).single();
+            const { data: subData } = await supabase.from('subscriptions').select('status, trial_ends_at, current_period_end').eq('organization_id', member.organization_id).single();
             subscription = subData;
         }
     }
@@ -58,12 +69,44 @@ export default async function DashboardLayout({
         return Math.ceil((end - now) / (1000 * 60 * 60 * 24));
     };
 
-    const trialDaysLeft = subscription?.status === 'trialing' ? calculateDaysLeft(subscription.trial_ends_at) : -1;
+    // ▼▼▼ LOGIKA NOTIFIKASI DINAMIS ▼▼▼
+    let notification = null;
+    if (subscription) {
+        if (subscription.status === 'trialing') {
+            const daysLeft = calculateDaysLeft(subscription.trial_ends_at);
+            if (daysLeft >= 0) {
+                const isUrgent = daysLeft <= 7;
+                notification = {
+                    message: `Masa percobaan Anda ${isUrgent ? 'akan berakhir dalam' : 'tersisa'} ${daysLeft} hari lagi.`,
+                    variant: isUrgent ? 'yellow' : 'teal',
+                    actionText: 'Upgrade Sekarang',
+                    actionLink: '/dashboard/billing'
+                };
+            }
+        } else if (subscription.status === 'active') {
+            const daysLeft = calculateDaysLeft(subscription.current_period_end);
+            if (daysLeft >= 0 && daysLeft <= 7) {
+                 notification = {
+                    message: `Langganan Anda akan berakhir dalam ${daysLeft} hari.`,
+                    variant: 'yellow',
+                    actionText: 'Perpanjang Sekarang',
+                    actionLink: '/dashboard/billing'
+                };
+            }
+        }
+    }
     
     return (
         <DashboardProvider userInitials={userInitials.toUpperCase()}>
             <main className="flex flex-col flex-1 gap-4 p-4 lg:gap-6 lg:p-6 bg-gray-50/50 dark:bg-gray-900/50 overflow-auto">
-                {trialDaysLeft >= 0 && <TrialBanner daysLeft={trialDaysLeft} />}
+                {notification && (
+                    <SubscriptionBanner 
+                        message={notification.message}
+                        variant={notification.variant as 'teal' | 'yellow'}
+                        actionText={notification.actionText}
+                        actionLink={notification.actionLink}
+                    />
+                )}
                 {children}
             </main>
         </DashboardProvider>

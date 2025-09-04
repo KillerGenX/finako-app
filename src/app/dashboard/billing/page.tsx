@@ -1,24 +1,48 @@
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
-import { CheckCircle2, Sparkles } from 'lucide-react';
+import { CheckCircle2, Sparkles, PlusCircle } from 'lucide-react';
 import Link from 'next/link';
-import { redirect } from 'next/navigation'; // Import redirect
+import { redirect } from 'next/navigation';
 
 const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0,
-    }).format(price);
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(price);
 };
 
-const calculateDaysLeft = (endDate: string | null) => {
-    if (!endDate) return 0;
-    const end = new Date(endDate).getTime();
-    const now = new Date().getTime();
-    const difference = end - now;
-    return Math.max(0, Math.ceil(difference / (1000 * 60 * 60 * 24)));
+const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 };
+
+// ▼▼▼ PANEL STATUS YANG DIPERBARUI DENGAN TOMBOL AKSI ▼▼▼
+const CurrentPlanPanel = ({ subscription }: { subscription: any }) => {
+    const planName = subscription.subscription_plans?.name || 'N/A';
+    const renewalDate = formatDate(subscription.current_period_end);
+
+    return (
+        <div className="mb-8 p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Langganan Anda Saat Ini</h2>
+                    <div className="mt-2 flex items-center gap-4 text-sm">
+                        <span className="inline-flex items-center px-3 py-1 font-semibold text-green-700 bg-green-100 dark:text-green-200 dark:bg-green-900/50 rounded-full">
+                            Aktif
+                        </span>
+                        <span className="text-gray-500 dark:text-gray-400">
+                            Paket <strong className="text-teal-600 dark:text-teal-400">{planName}</strong> akan diperpanjang pada <strong className="text-gray-800 dark:text-gray-200">{renewalDate}</strong>
+                        </span>
+                    </div>
+                </div>
+                <Link
+                    href={`/dashboard/billing/checkout?planId=${subscription.plan_id}`}
+                    className="flex items-center justify-center gap-2 w-full md:w-auto px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition-colors duration-300"
+                >
+                    <PlusCircle className="h-5 w-5" />
+                    Perpanjang / Tambah Durasi
+                </Link>
+            </div>
+        </div>
+    );
+};
+
 
 export default async function BillingPage() {
     const cookieStore = await cookies();
@@ -41,42 +65,30 @@ export default async function BillingPage() {
         }
     }
 
-    // ▼▼▼ LOGIKA BARU UNTUK MEMERIKSA INVOICE TERTUNDA ▼▼▼
     if (organizationId) {
-        const { data: pendingInvoice } = await supabase
-            .from('invoices')
-            .select('id')
-            .eq('organization_id', organizationId)
-            .in('status', ['pending', 'awaiting_confirmation'])
-            .maybeSingle(); // Ambil satu jika ada
-
+        const { data: pendingInvoice } = await supabase.from('invoices').select('id').eq('organization_id', organizationId).in('status', ['pending', 'awaiting_confirmation']).maybeSingle();
         if (pendingInvoice) {
-            // Jika ada, langsung alihkan ke halaman pembayaran
             redirect(`/dashboard/billing/payment/${pendingInvoice.id}`);
         }
     }
-    // ▲▲▲ AKHIR DARI LOGIKA BARU ▲▲▲
 
-
-    const { data: plans, error: plansError } = await supabase
-        .from('subscription_plans')
-        .select('*')
-        .eq('is_active', true)
-        .order('price', { ascending: true });
+    const { data: plans, error: plansError } = await supabase.from('subscription_plans').select('*').eq('is_active', true).neq('name', 'Trial').order('price', { ascending: true });
 
     if (plansError) {
         return <div className="text-red-500">Error loading subscription plans.</div>;
     }
-
-    const trialDaysLeft = currentSubscription?.status === 'trialing' ? calculateDaysLeft(currentSubscription.trial_ends_at) : 0;
     
     return (
         <div>
+            {currentSubscription && currentSubscription.status === 'active' && (
+                <CurrentPlanPanel subscription={currentSubscription} />
+            )}
+
             <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-                Pilih Paket Terbaik Untuk Anda
+                {currentSubscription && currentSubscription.status === 'active' ? 'Ubah Paket Anda' : 'Pilih Paket Terbaik Untuk Anda'}
             </h1>
             <p className="mt-2 text-lg text-gray-600 dark:text-gray-400">
-                Mulai dengan masa percobaan gratis, dan upgrade kapanpun Anda siap.
+                {currentSubscription && currentSubscription.status === 'active' ? 'Pilih paket lain untuk mengubah langganan Anda.' : 'Mulai dengan masa percobaan gratis, dan upgrade kapanpun Anda siap.'}
             </p>
 
             <div className="mt-8 grid gap-8 md:grid-cols-2 lg:grid-cols-3 items-stretch">
@@ -85,62 +97,24 @@ export default async function BillingPage() {
                     const isComingSoon = plan.name.includes("AI");
 
                     return (
-                        <div
-                            key={plan.id}
-                            className={`relative flex flex-col rounded-xl border ${isCurrentPlan ? 'border-teal-500 ring-2 ring-teal-500' : 'border-gray-200 dark:border-gray-800'} bg-white dark:bg-gray-900 shadow-sm p-8`}
-                        >
-                            {isComingSoon && (
-                                <div className="absolute top-0 right-0 mr-4 -mt-3">
-                                    <span className="inline-flex items-center px-3 py-1 text-sm font-semibold text-purple-600 bg-purple-100 dark:text-purple-200 dark:bg-purple-900/50 rounded-full">
-                                        <Sparkles className="h-4 w-4 mr-1.5" />
-                                        Coming Soon
-                                    </span>
-                                </div>
-                            )}
-
+                        <div key={plan.id} className={`relative flex flex-col rounded-xl border ${isCurrentPlan ? 'border-teal-500 ring-2 ring-teal-500' : 'border-gray-200 dark:border-gray-800'} bg-white dark:bg-gray-900 shadow-sm p-8`}>
+                            {isComingSoon && (<div className="absolute top-0 right-0 mr-4 -mt-3"><span className="inline-flex items-center px-3 py-1 text-sm font-semibold text-purple-600 bg-purple-100 dark:text-purple-200 dark:bg-purple-900/50 rounded-full"><Sparkles className="h-4 w-4 mr-1.5" />Coming Soon</span></div>)}
                             <h3 className="text-2xl font-bold">{plan.name}</h3>
                             <p className="mt-2 text-gray-500 dark:text-gray-400 min-h-[40px]">{plan.description}</p>
-                            
-                            <div className="mt-6 flex flex-nowrap items-baseline gap-x-2">
-                                <span className="text-4xl font-extrabold">{formatPrice(plan.price)}</span>
-                                <span className="text-lg font-medium text-gray-500 dark:text-gray-400">/{plan.billing_interval}</span>
-                            </div>
-
+                            <div className="mt-6 flex flex-nowrap items-baseline gap-x-2"><span className="text-4xl font-extrabold">{formatPrice(plan.price)}</span><span className="text-lg font-medium text-gray-500 dark:text-gray-400">/{plan.billing_interval}</span></div>
                             <ul className="mt-6 space-y-3 text-gray-600 dark:text-gray-300 flex-grow">
-                                <li className="flex items-center gap-2">
-                                    <CheckCircle2 className="h-5 w-5 text-teal-500" />
-                                    <span>Akses semua fitur inti</span>
-                                </li>
-                                {plan.name.includes("Pro") && (
-                                    <li className="flex items-center gap-2">
-                                        <CheckCircle2 className="h-5 w-5 text-teal-500" />
-                                        <span>Dukungan prioritas</span>
-                                    </li>
-                                )}
-                                {isComingSoon && (
-                                    <li className="flex items-center gap-2">
-                                        <CheckCircle2 className="h-5 w-5 text-teal-500" />
-                                        <span>Fitur AI Otomatis</span>
-                                    </li>
-                                )}
+                                <li className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5 text-teal-500" /><span>Akses semua fitur inti</span></li>
+                                {plan.name.includes("Pro") && (<li className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5 text-teal-500" /><span>Dukungan prioritas</span></li>)}
+                                {isComingSoon && (<li className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5 text-teal-500" /><span>Fitur AI Otomatis</span></li>)}
                             </ul>
-                            
                             <div className="mt-8">
-                                {plan.name === 'Trial' ? (
-                                    <div className="text-center">
-                                        <p className="font-semibold text-teal-600 dark:text-teal-400">Paket Anda Saat Ini</p>
-                                        <p className="text-sm text-gray-500 mt-1">{trialDaysLeft} hari tersisa</p>
-                                    </div>
+                                {isCurrentPlan ? (
+                                    <span className="block w-full text-center px-4 py-3 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-semibold">Paket Anda Saat Ini</span>
                                 ) : isComingSoon ? (
-                                    <span className="block w-full text-center px-4 py-3 rounded-lg bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed font-semibold">
-                                        Segera Hadir
-                                    </span>
+                                    <span className="block w-full text-center px-4 py-3 rounded-lg bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed font-semibold">Segera Hadir</span>
                                 ) : (
-                                    <Link
-                                        href={`/dashboard/billing/checkout?planId=${plan.id}`}
-                                        className="block w-full text-center px-4 py-3 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-semibold transition-colors duration-300"
-                                    >
-                                        Pilih Paket
+                                    <Link href={`/dashboard/billing/checkout?planId=${plan.id}`} className="block w-full text-center px-4 py-3 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-semibold transition-colors duration-300">
+                                        {currentSubscription?.subscription_plans?.price > plan.price ? 'Downgrade' : 'Upgrade'}
                                     </Link>
                                 )}
                             </div>
