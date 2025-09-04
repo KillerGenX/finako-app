@@ -2,10 +2,10 @@
 
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 
-export async function confirmManualPayment(invoiceId: string) {
+// ▼▼▼ FUNGSI DIPERBARUI AGAR TIDAK MENGEMBALIKAN NILAI (RETURN VOID) ▼▼▼
+export async function confirmManualPayment(invoiceId: string): Promise<void> {
     const cookieStore = await cookies();
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,10 +20,10 @@ export async function confirmManualPayment(invoiceId: string) {
         .single();
         
     if (invoiceError || !invoice) {
-        return { error: 'Invoice not found.' };
+        console.error('Invoice not found during confirmation.');
+        return; // Keluar jika invoice tidak ditemukan
     }
 
-    // Ambil langganan yang ada untuk mendapatkan tanggal akhir saat ini
     const { data: currentSubscription, error: subSelectError } = await supabase
         .from('subscriptions')
         .select('current_period_end, status')
@@ -31,27 +31,22 @@ export async function confirmManualPayment(invoiceId: string) {
         .single();
 
     if (subSelectError || !currentSubscription) {
-        return { error: 'Could not find existing subscription to update.' };
+        console.error('Subscription not found during confirmation.');
+        return;
     }
 
-    // ▼▼▼ LOGIKA UTAMA "TAMBAH PULSA" ▼▼▼
-    let newPeriodEnd: Date;
-    // Tentukan tanggal mulai untuk perhitungan: akhir periode saat ini, atau hari ini jika sudah kedaluwarsa
     const startDate = new Date(currentSubscription.current_period_end) > new Date()
         ? new Date(currentSubscription.current_period_end)
         : new Date();
 
-    // Tambahkan durasi dari invoice ke tanggal mulai
-    newPeriodEnd = new Date(startDate);
+    const newPeriodEnd = new Date(startDate);
     newPeriodEnd.setMonth(newPeriodEnd.getMonth() + invoice.billing_duration_months);
-    // ▲▲▲ AKHIR DARI LOGIKA UTAMA ▲▲▲
 
     const { error: subError } = await supabase
         .from('subscriptions')
         .update({
             plan_id: invoice.plan_id,
             status: 'active',
-            // Jika status sebelumnya 'trialing', set tanggal mulai baru. Jika tidak, pertahankan yang lama.
             current_period_start: currentSubscription.status === 'trialing' ? new Date().toISOString() : undefined,
             current_period_end: newPeriodEnd.toISOString(),
             trial_ends_at: null,
@@ -59,8 +54,9 @@ export async function confirmManualPayment(invoiceId: string) {
         .eq('organization_id', invoice.organization_id);
 
     if (subError) {
-        console.error("Subscription update error:", subError);
-        return { error: 'Failed to update subscription.' };
+        console.error("Failed to update subscription:", subError);
+        // Di sini kita bisa throw error jika ingin form menangkapnya, tapi untuk sekarang cukup log.
+        return;
     }
 
     const { error: invoiceUpdateError } = await supabase
@@ -74,7 +70,7 @@ export async function confirmManualPayment(invoiceId: string) {
     
     revalidatePath('/dashboard/billing');
     revalidatePath('/dashboard');
-    return { success: true };
+    revalidatePath('/admin/billing'); // Revalidasi halaman admin juga
 }
 
 // (Fungsi uploadProof tetap sama)

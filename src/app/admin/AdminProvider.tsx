@@ -21,7 +21,6 @@ const AdminSidebar = () => {
     ];
 
     return (
-        // ▼▼▼ STYLING DISAMAKAN DENGAN DASHBOARD BIASA ▼▼▼
         <aside className={`transition-all duration-300 ease-in-out border-r bg-gray-100/40 dark:bg-gray-800/40 hidden md:flex flex-col ${isCollapsed ? 'w-20' : 'w-64'}`}>
              <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
                 <Link href="/admin/dashboard" className={`flex items-center gap-3 font-semibold transition-all duration-300 ${isCollapsed ? 'justify-center w-full' : ''}`}>
@@ -29,7 +28,6 @@ const AdminSidebar = () => {
                     <span className={`font-bold text-xl text-gray-900 dark:text-gray-100 transition-all duration-200 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'}`}>Admin</span>
                 </Link>
             </div>
-
             <div className="flex-1 overflow-y-auto scrollbar-hide">
                 <nav className="grid items-start px-2 text-sm font-medium lg:px-4 py-4">
                     {navLinks.map(({ href, icon: Icon, label }) => (
@@ -40,7 +38,6 @@ const AdminSidebar = () => {
                     ))}
                 </nav>
             </div>
-
             <div className="mt-auto p-4 border-t flex-shrink-0">
                 <button 
                     onClick={toggleSidebar} 
@@ -57,7 +54,12 @@ const AdminSidebar = () => {
     );
 };
 
-export default function AdminProvider({ children, userInitials }: { children: ReactNode; userInitials: string; }) {
+// ▼▼▼ PROPS BARU DITAMBAHKAN DI SINI ▼▼▼
+export default function AdminProvider({ children, userInitials, notificationCount }: { 
+    children: ReactNode; 
+    userInitials: string;
+    notificationCount: number;
+}) {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const toggleSidebar = () => setIsCollapsed(prev => !prev);
 
@@ -66,7 +68,7 @@ export default function AdminProvider({ children, userInitials }: { children: Re
             <div className="grid min-h-screen w-full md:grid-cols-[auto_1fr]">
                 <AdminSidebar />
                 <div className="flex flex-col">
-                    <Header userInitials={userInitials} toggleSidebar={toggleSidebar} />
+                    <Header userInitials={userInitials} toggleSidebar={toggleSidebar} notificationCount={notificationCount} />
                     {children}
                 </div>
             </div>

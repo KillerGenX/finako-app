@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
-import InvoicesTable from './InvoicesTable'; // Import komponen client yang baru
+import InvoicesTable from './InvoicesTable';
 
 export default async function AdminBillingPage() {
     const cookieStore = await cookies();
@@ -35,7 +35,6 @@ export default async function AdminBillingPage() {
             </p>
 
             <div className="mt-8">
-                {/* Render komponen client dengan data dari server */}
                 <InvoicesTable invoices={invoices || []} />
             </div>
         </div>
