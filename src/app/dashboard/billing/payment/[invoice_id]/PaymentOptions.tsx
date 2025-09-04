@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from 'react';
-import { uploadProof, confirmManualPayment } from './actions';
+import { uploadProof } from './actions';
 import { Loader2, UploadCloud, CheckCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -39,22 +39,11 @@ export default function PaymentOptions({ invoice }: { invoice: any }) {
             }
             if (result.success) {
                 setFormMessage({ type: 'success', text: result.message! });
+                // Refresh halaman untuk menampilkan status baru (opsional, tergantung UX)
+                router.refresh(); 
             }
         });
     };
-
-    const handleConfirmPayment = () => {
-        // Ini untuk simulasi, di dunia nyata tombol ini tidak ada untuk user
-        startTransition(async () => {
-            const result = await confirmManualPayment(invoice.id);
-            if (result.error) {
-                setFormMessage({ type: 'error', text: result.error });
-            } else {
-                setFormMessage({ type: 'success', text: 'Pembayaran berhasil! Mengarahkan...' });
-                router.push('/dashboard');
-            }
-        });
-    }
 
     if (invoice.status === 'awaiting_confirmation') {
         return (
@@ -64,18 +53,7 @@ export default function PaymentOptions({ invoice }: { invoice: any }) {
                 <p className="mt-2 text-gray-600 dark:text-gray-400">
                     Bukti pembayaran Anda telah kami terima. Tim kami akan segera melakukan verifikasi dalam 1x24 jam.
                 </p>
-                {/* Tombol simulasi untuk admin, hapus/sembunyikan di produksi */}
-                <div className="mt-6 p-4 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
-                    <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-200">Panel Simulasi Admin</p>
-                    <p className="text-xs text-yellow-700 dark:text-yellow-300 mb-2">Klik tombol di bawah untuk menyetujui pembayaran ini secara instan.</p>
-                     <button
-                        onClick={handleConfirmPayment}
-                        disabled={isPending}
-                        className="w-full mt-2 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 rounded-lg transition-colors duration-300 flex items-center justify-center disabled:bg-gray-400"
-                    >
-                        {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Setujui Pembayaran (Simulasi)'}
-                    </button>
-                </div>
+                {/* ▼▼▼ TOMBOL SIMULASI SUDAH DIHAPUS ▼▼▼ */}
             </div>
         );
     }
@@ -98,7 +76,6 @@ export default function PaymentOptions({ invoice }: { invoice: any }) {
                 <h2 className="text-xl font-semibold">Pilih Metode Pembayaran</h2>
             </div>
             <div className="p-6">
-                {/* Opsi Pembayaran */}
                 <div className="flex gap-4 mb-6">
                     <button
                         onClick={() => setPaymentMethod('manual')}
@@ -115,7 +92,6 @@ export default function PaymentOptions({ invoice }: { invoice: any }) {
                     </button>
                 </div>
 
-                {/* Konten Metode Pembayaran */}
                 {paymentMethod === 'manual' && (
                     <div>
                         <h3 className="font-semibold mb-2">Instruksi Transfer Manual</h3>

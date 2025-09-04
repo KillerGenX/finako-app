@@ -27,7 +27,7 @@ const CurrentPlanPanel = ({ subscription }: { subscription: any }) => {
                             Aktif
                         </span>
                         <span className="text-gray-500 dark:text-gray-400">
-                            Paket <strong className="text-teal-600 dark:text-teal-400">{planName}</strong> akan diperpanjang pada <strong className="text-gray-800 dark:text-gray-200">{renewalDate}</strong>
+                            Paket <strong className="text-teal-600 dark:text-teal-400">{planName}</strong> akan berakhir pada <strong className="text-gray-800 dark:text-gray-200">{renewalDate}</strong>
                         </span>
                     </div>
                 </div>

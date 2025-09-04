@@ -26,38 +26,68 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
   const { pathname } = request.nextUrl;
+  const authPages = ['/', '/register'];
 
-  // Jika tidak ada user, arahkan ke login jika mencoba akses dashboard
-  if (!user && pathname.startsWith('/dashboard')) {
-    return NextResponse.redirect(new URL('/', request.url));
+  // =================================================================
+  // 1. TANGANI PENGGUNA YANG BELUM LOGIN
+  // =================================================================
+  if (!user) {
+    if (pathname.startsWith('/dashboard') || pathname.startsWith('/admin')) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+    return response; // Izinkan akses ke halaman publik
   }
 
-  // Jika ada user, lakukan pengecekan lebih lanjut
-  if (user) {
-    // 1. Cek Verifikasi Email
-    if (!user.email_confirmed_at && !pathname.startsWith('/auth/confirm')) {
-      return NextResponse.redirect(new URL('/auth/confirm', request.url));
-    }
-    
-    // 2. Jika email sudah terverifikasi, cek status langganan
-    if (user.email_confirmed_at) {
-      // Ambil data langganan
-      const { data: member } = await supabase.from('organization_members').select('organization_id').eq('user_id', user.id).single();
-      if (member) {
-        const { data: subscription } = await supabase.from('subscriptions').select('status').eq('organization_id', member.organization_id).single();
-        
-        const isSubscribed = subscription && (subscription.status === 'active' || subscription.status === 'trialing');
-        
-        // ▼▼▼ LOGIKA PENGUNCIAN UTAMA ▼▼▼
-        if (!isSubscribed && !pathname.startsWith('/dashboard/billing')) {
-          return NextResponse.redirect(new URL('/dashboard/billing', request.url));
-        }
+  // =================================================================
+  // 2. JIKA SUDAH LOGIN, DAPATKAN PERAN (ROLE) PENGGUNA
+  // =================================================================
+  const { data: member } = await supabase
+    .from('organization_members')
+    .select('role, organization_id')
+    .eq('user_id', user.id)
+    .single();
+  const userRole = member?.role;
 
-        // Jika sudah berlangganan dan mencoba akses halaman auth, arahkan ke dashboard
-        if (isSubscribed && (pathname === '/' || pathname === '/register' || pathname.startsWith('/auth'))) {
-            return NextResponse.redirect(new URL('/dashboard', request.url));
-        }
-      }
+  // =================================================================
+  // 3. TERAPKAN ATURAN BERDASARKAN PERAN
+  // =================================================================
+
+  // ATURAN UNTUK ADMIN APLIKASI
+  if (userRole === 'app_admin') {
+    // Jika admin berada di halaman login/register, arahkan ke dashboard admin
+    if (authPages.includes(pathname)) {
+      return NextResponse.redirect(new URL('/admin/dashboard', request.url));
+    }
+    // Jika admin mencoba akses dashboard pengguna, arahkan kembali ke dashboard admin
+    if (pathname.startsWith('/dashboard')) {
+      return NextResponse.redirect(new URL('/admin/dashboard', request.url));
+    }
+    // Jika tidak, izinkan akses ke rute /admin
+    return response;
+  }
+  
+  // ATURAN UNTUK PENGGUNA BIASA (bukan app_admin)
+  // Lindungi rute /admin dari pengguna biasa
+  if (pathname.startsWith('/admin')) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  // Arahkan dari halaman login/register ke dashboard pengguna
+  if (authPages.includes(pathname)) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+  
+  // Terapkan aturan verifikasi email dan langganan
+  if (!user.email_confirmed_at && !pathname.startsWith('/auth/confirm')) {
+    return NextResponse.redirect(new URL('/auth/confirm', request.url));
+  }
+
+  if (user.email_confirmed_at && member) {
+    const { data: subscription } = await supabase.from('subscriptions').select('status').eq('organization_id', member.organization_id).single();
+    const isSubscribed = subscription && (subscription.status === 'active' || subscription.status === 'trialing');
+    
+    if (!isSubscribed && !pathname.startsWith('/dashboard/billing')) {
+      return NextResponse.redirect(new URL('/dashboard/billing', request.url));
     }
   }
 
