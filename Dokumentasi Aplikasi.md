@@ -14,54 +14,52 @@
 
 ### Status Pengembangan
 
-#### **Pengembangan Tahap 1-3 - Selesai**
+#### **Fase 1: Fondasi & Kerangka Produk - Selesai**
 
-Fondasi aplikasi, modul produk, dan modul kategori telah berhasil dibangun.
+Tahap awal ini membangun fondasi aplikasi dan kerangka kerja untuk manajemen produk, namun **belum mencakup manajemen inventaris/stok**.
 
-**1. Alur Autentikasi & Langganan (SaaS Core):**
-- Fitur lengkap untuk registrasi, login, keamanan rute, dan manajemen langganan.
-- Alur checkout dan notifikasi pembayaran.
+**1. Modul Inti yang Fungsional:**
+- **Autentikasi & Langganan:** Alur lengkap untuk registrasi, login, keamanan, dan manajemen langganan.
+- **Panel Admin:** Dasbor fungsional untuk verifikasi dan histori pembayaran.
+- **Manajemen Kategori:** CRUD penuh untuk kategori produk, termasuk struktur hierarkis.
 
-**2. Panel Admin Terintegrasi (`/admin`):**
-- Dasbor admin dengan statistik nyata.
-- Fungsionalitas penuh untuk verifikasi dan histori pembayaran.
+**2. Modul Produk & Inventaris (Kerangka Dasar):**
+- **CRUD Entitas Produk:** Kemampuan untuk membuat, membaca, memperbarui, dan menghapus **definisi produk** (tipe `SINGLE`). Pengguna dapat mendefinisikan "apa" yang mereka jual.
+- **Fitur Pendukung:** Validasi Zod, generate SKU otomatis, dan integrasi pemilihan kategori.
+- **Keterbatasan Saat Ini:** Fungsionalitas `track_stock` baru sebatas checkbox. Belum ada cara untuk memasukkan, mengelola, atau melihat **kuantitas stok**.
 
-**3. Modul Produk & Inventaris (Terintegrasi):**
-- **CRUD Penuh:** Fungsionalitas lengkap untuk membuat, membaca, memperbarui, dan menghapus produk.
-- **Validasi Data (Zod):** Memastikan integritas data untuk semua operasi.
-- **Generate SKU Otomatis:** Membuat SKU unik secara otomatis.
-- **Integrasi Kategori:** Produk kini dapat dihubungkan dengan kategori melalui dropdown di form.
-
-**4. Modul Kategori Produk (Hierarkis):**
-- **CRUD Penuh:** Manajemen kategori melalui antarmuka modal yang efisien di halaman `/dashboard/categories`.
-- **Struktur Induk-Anak:** Mendukung pembuatan sub-kategori.
-- **Navigasi:** Dapat diakses dengan mudah melalui sidebar utama dan *shortcut* dari form produk.
-
-**5. Arsitektur & Desain:**
-- **Server Actions & RSC:** Menggunakan arsitektur modern Next.js untuk semua operasi data dan rendering.
-- **Database Triggers & RPC:** Otomatisasi dan query yang efisien di level database.
-- **Desain Konsisten:** Layout, sidebar, dan tema terang/gelap yang seragam di seluruh aplikasi.
+**3. Arsitektur & Desain:**
+- **Server Actions & RSC:** Menggunakan arsitektur modern Next.js.
+- **Desain Konsisten:** Layout, sidebar interaktif, dan tema terang/gelap yang seragam.
 
 ---
 
-### **Panduan untuk AI (Sesi Berikutnya)**
+### **Peta Jalan & Panduan untuk AI (Sesi Berikutnya)**
 
-Untuk menjaga konsistensi dan melanjutkan pengembangan, harap ikuti panduan berikut:
+Pengembangan selanjutnya akan berfokus untuk membangun fungsionalitas **manajemen inventaris** yang sebenarnya, yang merupakan inti dari aplikasi ini.
 
-**1. Prioritas Utama Berikutnya: Membangun Modul Pelanggan (CRM)**
-- **Tujuan:** Memungkinkan pengguna untuk menyimpan dan mengelola data pelanggan mereka. Ini adalah langkah pertama menuju fungsionalitas Point of Sale (POS) yang lebih lengkap.
-- **Tabel Database:** `customers` (sudah ada).
-- **Fitur yang Dibutuhkan:**
-    - Halaman baru di `/dashboard/customers` untuk mengelola pelanggan (CRUD).
-    - Form untuk menambah/mengedit data pelanggan (Nama, Telepon, Email, Alamat).
-    - **Integrasi Masa Depan:** Field pelanggan ini nantinya akan bisa dihubungkan ke transaksi penjualan.
+#### **Fase 2: Manajemen Lokasi & Stok Dasar (Prioritas Utama Berikutnya)**
+- **Tujuan:** Menghidupkan fungsionalitas pelacakan stok. Pengguna harus bisa menjawab, "Berapa banyak stok produk X yang saya miliki, dan di mana lokasinya?"
+- **Tabel Database Utama:** `outlets`, `inventory_stock_levels`, `inventory_stock_movements`.
+- **Rencana Implementasi:**
+    1.  **CRUD Manajemen Outlet:**
+        - Buat halaman baru di `/dashboard/outlets` untuk mengelola lokasi bisnis (misal: Gudang Pusat, Toko A, Toko B).
+        - Tambahkan link "Outlet" di sidebar navigasi.
+    2.  **Antarmuka Manajemen Stok:**
+        - Buat halaman detail produk baru di `/dashboard/products/[id]/inventory` yang akan menjadi pusat kontrol stok untuk produk tersebut.
+        - Di halaman ini, tampilkan daftar stok produk di setiap outlet yang ada.
+    3.  **Implementasi Aksi Stok:**
+        - Buat *Server Actions* untuk mencatat pergerakan stok di `inventory_stock_movements`, yang kemudian akan memperbarui `inventory_stock_levels`.
+        - **Fitur Awal:** "Pemasukan Stok" (untuk stok awal/pembelian) dan "Penyesuaian Stok" (untuk barang rusak/hilang).
+    4.  **Visualisasi Kuantitas Stok:**
+        - Perbarui tabel utama di `/dashboard/products` untuk menampilkan **total kuantitas stok** (jumlah dari semua outlet) untuk setiap produk, bukan hanya teks "Dilacak".
+- **Pola Arsitektur:** Tetap gunakan **Server Components** untuk fetching data dan **Server Actions + Zod** untuk mutasi data. Pisahkan form interaktif (misal: form penyesuaian stok) menjadi **Client Components**.
 
-**2. Pola Arsitektur yang Harus Diikuti:**
-- **Pengambilan Data (Read):** Gunakan **React Server Components (RSC)**.
-- **Mutasi Data (Create, Update, Delete):** Gunakan **Server Actions** dengan validasi **Zod**.
-- **Interaktivitas UI:** Pisahkan komponen interaktif menjadi **Client Component** (`"use client"`), gunakan pendekatan modal jika sesuai.
-
-**3. Catatan Penting tentang Manajemen State (Zustand & SWR):**
-- **SWR & Zustand:** Keduanya **belum diimplementasikan**. Tetap prioritaskan RSC dan React Hooks bawaan. Adopsi hanya jika ada kebutuhan spesifik untuk data *real-time* (SWR) atau state klien yang sangat kompleks (Zustand).
-
-Dengan mengikuti panduan ini, kita dapat memastikan bahwa pengembangan aplikasi Finako berjalan lancar dan konsisten.
+#### **Fase 3 & Seterusnya (Rencana Masa Depan)**
+- **Produk dengan Varian:** Setelah stok dasar solid, kembangkan fungsionalitas untuk produk dengan beberapa varian (misal: Baju berdasarkan ukuran/warna).
+- **Produk Komposit/Rakitan:** Implementasikan produk "resep" (misal: PC Rakitan).
+- **Pelacakan Nomor Seri:** Tambahkan pelacakan per unit untuk barang-barang seperti elektronik.
+- **Modul Pelanggan & Transaksi:** Setelah modul produk & inventaris matang, lanjutkan ke manajemen pelanggan dan Point of Sale (POS).
+---
+**Catatan Tambahan:**
+- **State Management (SWR & Zustand):** Tetap belum diimplementasikan. Prioritaskan arsitektur RSC + Server Actions.
