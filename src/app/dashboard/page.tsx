@@ -42,7 +42,7 @@ const modules = [
         icon: Package,
         title: "Produk & Inventaris",
         description: "Kelola semua produk, varian, stok, dan pergerakan inventaris di semua outlet Anda.",
-        href: "#"
+        href: "/dashboard/products"
     },
     {
         icon: ShoppingCart,

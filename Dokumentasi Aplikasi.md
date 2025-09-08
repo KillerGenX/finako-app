@@ -1,43 +1,53 @@
-Nama Aplikasi : Finako App
-Brand Color : Green Teal
-Bahasa Pemrograman : 	TypeScript
-Framework Frontend : 	Next.js (dengan App Router)
-Backend :REST API dari Supabase & (Logika Kustom)	Supabase Edge Functions & Database Functions (RPC)
-Styling & UI	: Tailwind CSS + Placeholder komponen bergaya Shadcn/UI
-Manajemen State : Zustand untuk Client State & SWR untuk Server State
-Pendekatan Mobile-First dan PWA
+# Dokumentasi Aplikasi Finako
 
-### Pengembangan Tahap 1 - Selesai
+**Nama Aplikasi**: Finako App
+**Brand Color**: Green Teal
+**Bahasa Pemrograman**: TypeScript
+**Framework Frontend**: Next.js (dengan App Router)
+**Backend**: Supabase (REST API, Edge Functions, Database Functions/RPC)
+**Styling & UI**: Tailwind CSS + Komponen bergaya Shadcn/UI
+**Validasi Data**: Zod
+**Manajemen State**: (Lihat catatan di bawah)
+**Pendekatan**: Mobile-First dan PWA
 
-Sejauh ini, kita telah berhasil membangun fondasi autentikasi, langganan, dan panel admin yang kokoh. Berikut adalah rincian fitur yang sudah diimplementasikan:
+---
+
+### Status Pengembangan
+
+#### **Pengembangan Tahap 1 & 2 - Selesai**
+
+Fondasi aplikasi dan modul produk inti telah berhasil dibangun, mencakup fitur-fitur berikut:
 
 **1. Alur Autentikasi & Langganan (SaaS Core):**
-- **Registrasi, Login, dan Middleware Keamanan:** Alur lengkap untuk pendaftaran pengguna, verifikasi email, dan perlindungan rute.
-- **Sistem Langganan Berbasis "Isi Ulang":** Pengguna dapat memperpanjang langganan kapan saja. Logika backend secara cerdas "menumpuk" durasi baru.
-- **Alur Checkout Lengkap:** Termasuk halaman pemilihan durasi, pembuatan invoice, dan halaman pembayaran dengan opsi transfer manual.
-- **Sistem Notifikasi Pengguna:** Pengguna menerima notifikasi di dasbor mereka saat pembayaran disetujui atau ditolak.
+- Alur lengkap untuk registrasi, login, verifikasi email, dan middleware keamanan.
+- Sistem langganan "isi ulang" dengan logika penumpukan durasi.
+- Alur checkout lengkap: pemilihan durasi, pembuatan invoice, dan pembayaran transfer manual.
+- Sistem notifikasi pengguna di dasbor untuk status pembayaran.
 
 **2. Panel Admin Terintegrasi (`/admin`):**
-- **Keamanan Berbasis Peran:** Rute `/admin` dilindungi oleh `middleware` dan hanya dapat diakses oleh pengguna dengan peran `app_admin`.
-- **Dasbor Admin Dinamis:** Menampilkan statistik nyata (total pengguna, pendapatan, langganan aktif) yang diambil langsung dari database.
-- **Notifikasi Admin Fungsional:** Ikon lonceng di header secara proaktif memberitahu admin tentang pembayaran yang menunggu verifikasi.
-- **Halaman Verifikasi Pembayaran:**
-    - Menampilkan daftar invoice yang menunggu konfirmasi.
-    - Admin dapat melihat bukti pembayaran dalam modal yang interaktif.
-    - Terdapat aksi "Setujui" dan "Tolak" dengan modal konfirmasi untuk mencegah kesalahan.
-- **Halaman Histori Pembayaran:**
-    - Menampilkan semua riwayat invoice dengan pencarian, filter status, dan pagination.
-    - Admin dapat melihat detail invoice, mencetaknya, dan mensimulasikan pengiriman email ke pelanggan.
+- Keamanan berbasis peran (`app_admin`) yang melindungi rute.
+- Dasbor admin dengan statistik nyata (total pengguna, pendapatan, dll.).
+- Fungsionalitas penuh untuk menyetujui dan menolak pembayaran.
+- Halaman histori pembayaran dengan pencarian, filter, dan pagination.
 
-**3. Otomatisasi & Arsitektur Backend:**
-- **Database Functions (RPC):** Logika query yang kompleks (seperti di halaman histori) dipindahkan ke dalam database untuk performa dan keamanan maksimal.
-- **Database Triggers:** Pendaftaran pengguna baru secara otomatis membuat `organization`, `profile`, `organization_member`, dan langganan percobaan.
-- **Server Actions:** Semua mutasi data (login, logout, upload bukti, konfirmasi pembayaran, dll.) ditangani dengan aman di sisi server.
+**3. Modul Produk & Inventaris (CRUD Lengkap):**
+- **Create:** Membuat produk baru dengan form tervalidasi (`/dashboard/products/new`).
+- **Read:** Menampilkan daftar semua produk dalam tabel (`/dashboard/products`).
+- **Update:** Mengedit produk yang ada melalui halaman form dinamis (`/dashboard/products/[id]/edit`).
+- **Delete:** Menghapus produk langsung dari tabel daftar produk.
+- **Fitur Tambahan:**
+    - **Validasi Data (Zod):** Memastikan integritas data untuk operasi Create dan Update.
+    - **Generate SKU Otomatis:** Membuat SKU unik secara otomatis jika kolom SKU dibiarkan kosong.
 
-**4. Struktur dan Desain Aplikasi:**
-- **Layout Terpisah:** Dasbor pengguna dan panel admin memiliki layout dan header yang terpisah namun tetap konsisten secara visual.
-- **Sidebar Interaktif:** Sidebar dapat diciutkan untuk memberikan lebih banyak ruang kerja.
-- **Komponen Modern:** Menggunakan arsitektur Server & Client Component, dengan UI yang mendukung mode terang/gelap.
+**4. Otomatisasi & Arsitektur Backend:**
+- **Database Functions (RPC)** untuk query yang kompleks.
+- **Database Triggers** untuk otomatisasi (misalnya, pembuatan profil saat registrasi).
+- **Server Actions** sebagai metode utama dan aman untuk semua mutasi data.
+
+**5. Struktur dan Desain Aplikasi:**
+- Layout terpisah antara dasbor pengguna dan panel admin.
+- Sidebar interaktif yang dapat diciutkan (`collapsible`).
+- Arsitektur modern **Server & Client Component**, dengan UI yang mendukung mode terang/gelap.
 
 ---
 
@@ -45,19 +55,27 @@ Sejauh ini, kita telah berhasil membangun fondasi autentikasi, langganan, dan pa
 
 Untuk menjaga konsistensi dan melanjutkan pengembangan, harap ikuti panduan berikut:
 
-**1. Prioritas Utama Berikutnya: Modul Produk**
-- **Tujuan:** Membangun fungsionalitas CRUD (Create, Read, Update, Delete) penuh untuk produk.
-- **Lokasi:** Semua halaman terkait produk harus berada di bawah `/dashboard/products`.
-- **Langkah Pertama:** Buat halaman utama di `/dashboard/products/page.tsx` yang menampilkan tabel produk (awalnya kosong) dan tombol "Tambah Produk Baru".
+**1. Prioritas Utama Berikutnya: Membangun Modul Kategori Produk**
+- **Tujuan:** Memungkinkan pengguna untuk mengelompokkan produk mereka ke dalam kategori. Ini akan menjadi fondasi untuk pelaporan dan penyaringan di masa depan.
+- **Tabel Database:** `product_categories` (sudah ada).
+- **Fitur yang Dibutuhkan:**
+    - Halaman baru di `/dashboard/categories` untuk mengelola kategori (CRUD).
+    - Kemampuan untuk membuat kategori induk dan anak (struktur hierarkis).
+    - **Integrasi:** Modifikasi form "Tambah/Edit Produk" untuk menyertakan dropdown pilihan kategori.
 
 **2. Pola Arsitektur yang Harus Diikuti:**
-- **Pengambilan Data (Read):** Untuk halaman yang menampilkan daftar data (seperti tabel produk), gunakan **Server Components**. Lakukan pengambilan data langsung di dalam komponen `async function Page()`. Jika diperlukan fitur interaktif seperti filter atau pencarian, gunakan pendekatan **RPC (Database Function)** seperti yang telah kita implementasikan di halaman Histori Admin.
-- **Mutasi Data (Create, Update, Delete):** Untuk semua aksi yang mengubah data, **selalu gunakan Server Actions**. Ini memastikan keamanan dan memungkinkan penggunaan `useFormStatus` atau `useTransition` di frontend untuk feedback UX yang baik.
-- **Interaktivitas UI:** Untuk komponen yang memerlukan state atau event handlers (seperti modal, dropdown, atau form interaktif), buatlah sebagai **Client Component** (`"use client"`) dan pisahkan dari logika pengambilan data server.
+- **Pengambilan Data (Read):** Prioritaskan penggunaan **React Server Components (RSC)**.
+- **Mutasi Data (Create, Update, Delete):** **Selalu gunakan Server Actions** dengan validasi **Zod**.
+- **Interaktivitas UI:** Pisahkan komponen interaktif (modal, dropdown, form) menjadi **Client Component** (`"use client"`).
 
-**3. Konsistensi Desain:**
-- **Komponen:** Terus gunakan placeholder komponen bergaya Shadcn/UI yang telah kita definisikan untuk konsistensi.
-- **Warna:** Gunakan warna `Green Teal` (misalnya, `bg-teal-600`) untuk semua aksi primer (tombol simpan, konfirmasi, dll).
-- **Layout:** Pertahankan struktur layout yang ada. Halaman baru harus pas di dalam `<main>` area yang sudah disediakan.
+**3. Catatan Penting tentang Manajemen State (Zustand & SWR):**
+- **SWR (Server State):**
+    - **Status:** **Belum Diimplementasikan.**
+    - **Alasan:** Arsitektur RSC menangani kebutuhan pengambilan data awal kita.
+    - **Kapan Menggunakannya:** Hanya untuk kebutuhan data *real-time* atau *infinite scrolling* di sisi klien.
+- **Zustand (Client State):**
+    - **Status:** **Belum Diimplementasikan.**
+    - **Alasan:** State klien saat ini masih sederhana.
+    - **Kapan Menggunakannya:** Hanya jika state klien menjadi sangat kompleks atau perlu dibagikan ke banyak komponen yang tidak berhubungan.
 
 Dengan mengikuti panduan ini, kita dapat memastikan bahwa pengembangan aplikasi Finako berjalan lancar, aman, dan konsisten.
