@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useState, useEffect, useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { createCategory, updateCategory, deleteCategory, CategoryFormState } from './actions';
 import { Edit, Trash2, PlusCircle, X, Loader2, Info, GitBranch } from 'lucide-react';
 
@@ -39,7 +39,7 @@ function DeleteButton() {
 const CategoryModal = ({ isOpen, onClose, category, allCategories }: { isOpen: boolean; onClose: () => void; category: Partial<Category> | null; allCategories: Category[]; }) => {
     const isEditing = !!category?.id;
     const action = isEditing ? updateCategory : createCategory;
-    const [state, formAction] = useFormState(action, initialState);
+    const [state, formAction] = useActionState(action, initialState);
     
     useEffect(() => {
         if (state.message === 'success') {

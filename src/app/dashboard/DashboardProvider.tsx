@@ -3,7 +3,7 @@
 import { useState, createContext, useContext, ReactNode, Fragment } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, ShoppingCart, Package, Users, LineChart, Settings, ChevronLeft, CreditCard, Folder } from 'lucide-react';
+import { Home, ShoppingCart, Package, Users, LineChart, Settings, ChevronLeft, CreditCard, Folder, Store } from 'lucide-react';
 import Header from './Header'; 
 
 const SidebarContext = createContext({
@@ -17,7 +17,6 @@ const Sidebar = () => {
     const { isCollapsed, toggleSidebar } = useContext(SidebarContext);
     const pathname = usePathname();
     
-    // Grouped navigation links
     const navLinkGroups = [
         [
             { href: "/dashboard", icon: Home, label: "Dashboard" }
@@ -27,6 +26,7 @@ const Sidebar = () => {
             { href: "/dashboard/products", icon: Package, label: "Produk" },
             { href: "/dashboard/categories", icon: Folder, label: "Kategori" },
             { href: "/dashboard/customers", icon: Users, label: "Pelanggan" },
+            { href: "/dashboard/outlets", icon: Store, label: "Outlet" },
         ],
         [
             { href: "/dashboard/reports", icon: LineChart, label: "Laporan" },

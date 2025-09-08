@@ -4,11 +4,17 @@ import { notFound } from 'next/navigation';
 import { EditProductForm } from './EditProductForm';
 
 export default async function EditProductPage({ params }: { params: { id: string } }) {
-    const cookieStore = cookies();
+    const cookieStore = await cookies(); // FIX: Added await
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { cookies: { get: (name) => cookieStore.get(name)?.value } }
+        {
+            cookies: {
+                get(name: string) {
+                    return cookieStore.get(name)?.value
+                },
+            },
+        }
     );
     
     const { data: { user } } = await supabase.auth.getUser();

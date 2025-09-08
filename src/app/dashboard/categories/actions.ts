@@ -10,7 +10,7 @@ import { z } from 'zod';
 const CategorySchema = z.object({
     name: z.string().min(2, { message: "Nama kategori harus diisi (minimal 2 karakter)." }),
     description: z.string().optional(),
-    parent_id: z.string().nullable().optional(), // Can be UUID, an empty string, or null
+    parent_id: z.string().nullable().optional(),
 });
 
 export type CategoryFormState = {
@@ -22,14 +22,25 @@ export type CategoryFormState = {
     };
 };
 
-
 // ============== HELPER ==============
 async function getSupabaseAndOrgId() {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { cookies: { get: (name) => cookieStore.get(name)?.value } }
+        {
+            cookies: {
+                get(name: string) {
+                    return cookieStore.get(name)?.value
+                },
+                set(name: string, value: string, options) {
+                    cookieStore.set({ name, value, ...options })
+                },
+                remove(name: string, options) {
+                    cookieStore.set({ name, value: '', ...options })
+                },
+            },
+        }
     );
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Pengguna tidak terautentikasi.");
@@ -38,13 +49,11 @@ async function getSupabaseAndOrgId() {
     return { supabase, organization_id: member.organization_id };
 }
 
-
 // ============== ACTIONS ==============
 
 export async function createCategory(prevState: CategoryFormState, formData: FormData): Promise<CategoryFormState> {
     try {
         const { supabase, organization_id } = await getSupabaseAndOrgId();
-        
         const validatedFields = CategorySchema.safeParse({
             name: formData.get('name'),
             description: formData.get('description'),
@@ -66,20 +75,18 @@ export async function createCategory(prevState: CategoryFormState, formData: For
         });
 
         if (error) {
-            if (error.code === '23505') { // Unique constraint violation
+            if (error.code === '23505') {
                  return { message: `Error: Kategori dengan nama '${name}' sudah ada.`, errors: { name: ["Nama kategori ini sudah digunakan."]}};
             }
             throw new Error(`Gagal membuat kategori: ${error.message}`);
         }
-
     } catch (e: any) {
         return { message: e.message, errors: {} };
     }
     
     revalidatePath('/dashboard/categories');
-    redirect('/dashboard/categories');
+    return { message: "success" };
 }
-
 
 export async function updateCategory(prevState: CategoryFormState, formData: FormData): Promise<CategoryFormState> {
     const categoryId = formData.get('category_id') as string;
@@ -87,7 +94,6 @@ export async function updateCategory(prevState: CategoryFormState, formData: For
 
     try {
         const { supabase, organization_id } = await getSupabaseAndOrgId();
-        
         const validatedFields = CategorySchema.safeParse({
             name: formData.get('name'),
             description: formData.get('description'),
@@ -101,7 +107,6 @@ export async function updateCategory(prevState: CategoryFormState, formData: For
         const { name, description } = validatedFields.data;
         let parentId = validatedFields.data.parent_id;
 
-        // Prevent a category from being its own parent
         if (categoryId === parentId) {
             return { message: "Error: Sebuah kategori tidak bisa menjadi induknya sendiri.", errors: { parent_id: ["Pilihan tidak valid."]}};
         }
@@ -121,15 +126,13 @@ export async function updateCategory(prevState: CategoryFormState, formData: For
             }
             throw new Error(`Gagal memperbarui kategori: ${error.message}`);
         }
-
     } catch (e: any) {
         return { message: e.message, errors: {} };
     }
 
     revalidatePath('/dashboard/categories');
-    redirect('/dashboard/categories');
+    return { message: "success" };
 }
-
 
 export async function deleteCategory(formData: FormData): Promise<{ message: string }> {
     const categoryId = formData.get('category_id') as string;
@@ -137,14 +140,11 @@ export async function deleteCategory(formData: FormData): Promise<{ message: str
 
     try {
         const { supabase, organization_id } = await getSupabaseAndOrgId();
-        
         const { error } = await supabase.from('product_categories')
             .delete()
             .eq('id', categoryId)
             .eq('organization_id', organization_id);
-
         if (error) throw new Error(`Gagal menghapus kategori: ${error.message}`);
-
     } catch (e: any) {
         return { message: e.message };
     }

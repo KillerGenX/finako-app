@@ -1,6 +1,7 @@
 "use client";
 
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { createProduct, FormState } from '../actions';
 import Link from 'next/link';
 import { ArrowLeft, Loader2, Info, ExternalLink } from 'lucide-react';
@@ -63,7 +64,7 @@ const FormCheckbox = ({ id, label, description, error }: { id: string, label: st
 
 
 export function NewProductForm({ categories }: { categories: Category[] }) {
-    const [state, formAction] = useFormState(createProduct, initialState);
+    const [state, formAction] = useActionState(createProduct, initialState);
 
     return (
         <div>

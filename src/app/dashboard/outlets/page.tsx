@@ -1,8 +1,8 @@
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
-import { CategoriesTable } from './CategoriesTable'; 
+import { OutletsClient } from './OutletsClient'; // Client component for table and modal
 
-export default async function CategoriesPage() {
+export default async function OutletsPage() {
     const cookieStore = await cookies(); // FIX: Added await
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,28 +18,24 @@ export default async function CategoriesPage() {
 
     const { data: { user } } = await supabase.auth.getUser();
     
-    let categories = [];
+    let outlets = [];
     if (user) {
         const { data: member } = await supabase.from('organization_members').select('organization_id').eq('user_id', user.id).single();
         if (member) {
-            const { data: categoryData } = await supabase
-                .from('product_categories')
+            const { data: outletData } = await supabase
+                .from('outlets')
                 .select(`
                     id,
                     name,
-                    description,
-                    parent_id,
-                    parent:parent_id ( name )
+                    address,
+                    phone_number,
+                    location_types
                 `)
                 .eq('organization_id', member.organization_id)
                 .order('name', { ascending: true });
-            categories = categoryData || [];
+            outlets = outletData || [];
         }
     }
 
-    return (
-        <div>
-            <CategoriesTable allCategories={categories} />
-        </div>
-    );
+    return <OutletsClient allOutlets={outlets} />;
 }
