@@ -24,16 +24,16 @@ export default async function EditProductPage({ params }: { params: { id: string
     if (!member) return notFound();
     const orgId = member.organization_id;
 
-    // Fetch product, categories, and brands in parallel
     const productPromise = supabase.from('product_variants').select(`
         id, name, sku, selling_price, cost_price, track_stock,
-        product:products ( description, category_id, brand_id, image_url )
+        product:products!inner ( id, description, category_id, brand_id, image_url, product_tax_rates(tax_rate_id) )
     `).eq('id', id).eq('organization_id', orgId).single();
     
     const categoriesPromise = supabase.from('product_categories').select('id, name').eq('organization_id', orgId).order('name');
     const brandsPromise = supabase.from('brands').select('id, name').eq('organization_id', orgId).order('name');
+    const taxesPromise = supabase.from('tax_rates').select('id, name, rate').eq('organization_id', orgId).order('name');
 
-    const [productResult, categoriesResult, brandsResult] = await Promise.all([productPromise, categoriesPromise, brandsPromise]);
+    const [productResult, categoriesResult, brandsResult, taxesResult] = await Promise.all([productPromise, categoriesPromise, brandsPromise, taxesPromise]);
 
     if (productResult.error || !productResult.data) {
         notFound();
@@ -50,7 +50,9 @@ export default async function EditProductPage({ params }: { params: { id: string
         category_id: productResult.data.product?.category_id || null,
         brand_id: productResult.data.product?.brand_id || null,
         image_url: productResult.data.product?.image_url || null,
+        // Extract just the IDs from the junction table
+        tax_rate_ids: productResult.data.product?.product_tax_rates.map(t => t.tax_rate_id) || [],
     };
 
-    return <EditProductForm product={productData} categories={categoriesResult.data || []} brands={brandsResult.data || []} />;
+    return <EditProductForm product={productData} categories={categoriesResult.data || []} brands={brandsResult.data || []} taxes={taxesResult.data || []} />;
 }

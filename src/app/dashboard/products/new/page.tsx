@@ -18,6 +18,7 @@ export default async function NewProductPage() {
     
     let categories = [];
     let brands = [];
+    let taxes = [];
     if (user) {
         const { data: member } = await supabase.from('organization_members').select('organization_id').eq('user_id', user.id).single();
         if (member) {
@@ -25,13 +26,15 @@ export default async function NewProductPage() {
             
             const categoriesPromise = supabase.from('product_categories').select('id, name').eq('organization_id', orgId).order('name');
             const brandsPromise = supabase.from('brands').select('id, name').eq('organization_id', orgId).order('name');
+            const taxesPromise = supabase.from('tax_rates').select('id, name, rate').eq('organization_id', orgId).order('name');
             
-            const [categoriesResult, brandsResult] = await Promise.all([categoriesPromise, brandsPromise]);
+            const [categoriesResult, brandsResult, taxesResult] = await Promise.all([categoriesPromise, brandsPromise, taxesPromise]);
             
             categories = categoriesResult.data || [];
             brands = brandsResult.data || [];
+            taxes = taxesResult.data || [];
         }
     }
 
-    return <NewProductForm categories={categories} brands={brands} />;
+    return <NewProductForm categories={categories} brands={brands} taxes={taxes} />;
 }

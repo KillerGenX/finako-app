@@ -7,64 +7,23 @@ import Link from 'next/link';
 import { ArrowLeft, Loader2, Info, ExternalLink } from 'lucide-react';
 import { ImageUpload } from '../../ImageUpload'; // Corrected path
 
-type SelectOption = {
-    id: string;
-    name: string;
-};
+type SelectOption = { id: string; name: string; };
+type TaxOption = { id: string; name: string; rate: number; };
 
-const initialState: FormState = {
-    message: '',
-};
+const initialState: FormState = { message: '' };
 
 function SubmitButton() {
     const { pending } = useFormStatus();
-    return (
-        <button type="submit" disabled={pending} className="inline-flex items-center justify-center px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50">
-            {pending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Memperbarui...</> : 'Simpan Perubahan'}
-        </button>
-    );
+    return ( <button type="submit" disabled={pending} className="inline-flex items-center justify-center px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50"> {pending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Memperbarui...</> : 'Simpan Perubahan'} </button> );
 }
 
 // Reusable Form Components
-const FormInput = ({ id, label, type, required, defaultValue, error, helpText }: { id: string, label: string, type: string, required?: boolean, defaultValue?: string | number, error?: string[], helpText?: string }) => (
-    <div>
-        <label htmlFor={id} className="block text-sm font-medium">{label}</label>
-        <input type={type} id={id} name={id} required={required} defaultValue={defaultValue} className={`mt-1 block w-full p-2 border rounded bg-transparent ${error ? 'border-red-500' : 'border-gray-300'}`} />
-        {helpText && !error && <p className="mt-1 text-xs text-gray-500">{helpText}</p>}
-        {error && <p className="mt-1 text-xs text-red-500">{error.join(', ')}</p>}
-    </div>
-);
+const FormInput = ({ id, label, type, required, defaultValue, error, helpText }: { id: string, label: string, type: string, required?: boolean, defaultValue?: string | number, error?: string[], helpText?: string }) => ( <div> <label htmlFor={id} className="block text-sm font-medium">{label}</label> <input type={type} id={id} name={id} required={required} defaultValue={defaultValue} className={`mt-1 block w-full p-2 border rounded bg-transparent ${error ? 'border-red-500' : 'border-gray-300'}`} /> {helpText && !error && <p className="mt-1 text-xs text-gray-500">{helpText}</p>} {error && <p className="mt-1 text-xs text-red-500">{error.join(', ')}</p>} </div> );
+const FormTextarea = ({ id, label, defaultValue, error }: { id: string, label: string, defaultValue?: string, error?: string[] }) => ( <div> <label htmlFor={id} className="block text-sm font-medium">{label}</label> <textarea id={id} name={id} rows={3} defaultValue={defaultValue} className={`mt-1 block w-full p-2 border rounded bg-transparent ${error ? 'border-red-500' : 'border-gray-300'}`}></textarea> {error && <p className="mt-1 text-xs text-red-500">{error.join(', ')}</p>} </div> );
+const FormSelect = ({ id, label, options, defaultValue, error, manageLink }: { id: string, label: string, options: SelectOption[], defaultValue?: string | null, error?: string[], manageLink: { href: string, text: string } }) => ( <div> <div className="flex justify-between items-center"> <label htmlFor={id} className="block text-sm font-medium">{label}</label> <Link href={manageLink.href} target="_blank" className="text-xs text-teal-600 hover:underline flex items-center gap-1"> {manageLink.text} <ExternalLink size={12} /> </Link> </div> <select id={id} name={id} defaultValue={defaultValue || 'null'} className={`mt-1 block w-full p-2 border rounded bg-transparent ${error ? 'border-red-500' : 'border-gray-300'}`}> <option value="null">-- Opsional --</option> {options.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)} </select> {error && <p className="mt-1 text-xs text-red-500">{error.join(', ')}</p>} </div> );
+const FormCheckbox = ({ id, label, description, defaultChecked, error }: { id: string, label: string, description: string, defaultChecked?: boolean, error?: string[] }) => ( <div className="flex items-start"><div className="flex items-center h-5"><input id={id} name={id} type="checkbox" defaultChecked={defaultChecked} className="h-4 w-4 text-teal-600 border-gray-300 rounded" /></div><div className="ml-3 text-sm"><label htmlFor={id} className="font-medium">{label}</label><p className="text-gray-500">{description}</p>{error && <p className="mt-1 text-xs text-red-500">{error.join(', ')}</p>}</div></div> );
 
-const FormTextarea = ({ id, label, defaultValue, error }: { id: string, label: string, defaultValue?: string, error?: string[] }) => (
-     <div>
-        <label htmlFor={id} className="block text-sm font-medium">{label}</label>
-        <textarea id={id} name={id} rows={3} defaultValue={defaultValue} className={`mt-1 block w-full p-2 border rounded bg-transparent ${error ? 'border-red-500' : 'border-gray-300'}`}></textarea>
-        {error && <p className="mt-1 text-xs text-red-500">{error.join(', ')}</p>}
-    </div>
-);
-
-const FormSelect = ({ id, label, options, defaultValue, error, manageLink }: { id: string, label: string, options: SelectOption[], defaultValue?: string | null, error?: string[], manageLink: { href: string, text: string } }) => (
-    <div>
-        <div className="flex justify-between items-center">
-            <label htmlFor={id} className="block text-sm font-medium">{label}</label>
-            <Link href={manageLink.href} target="_blank" className="text-xs text-teal-600 hover:underline flex items-center gap-1">
-                {manageLink.text} <ExternalLink size={12} />
-            </Link>
-        </div>
-        <select id={id} name={id} defaultValue={defaultValue || 'null'} className={`mt-1 block w-full p-2 border rounded bg-transparent ${error ? 'border-red-500' : 'border-gray-300'}`}>
-            <option value="null">-- Opsional --</option>
-            {options.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
-        </select>
-        {error && <p className="mt-1 text-xs text-red-500">{error.join(', ')}</p>}
-    </div>
-);
-
-const FormCheckbox = ({ id, label, description, defaultChecked, error }: { id: string, label: string, description: string, defaultChecked?: boolean, error?: string[] }) => (
-    <div className="flex items-start"><div className="flex items-center h-5"><input id={id} name={id} type="checkbox" defaultChecked={defaultChecked} className="h-4 w-4 text-teal-600 border-gray-300 rounded" /></div><div className="ml-3 text-sm"><label htmlFor={id} className="font-medium">{label}</label><p className="text-gray-500">{description}</p>{error && <p className="mt-1 text-xs text-red-500">{error.join(', ')}</p>}</div></div>
-);
-
-
-export function EditProductForm({ product, categories, brands }: { product: any, categories: SelectOption[], brands: SelectOption[] }) {
+export function EditProductForm({ product, categories, brands, taxes }: { product: any, categories: SelectOption[], brands: SelectOption[], taxes: TaxOption[] }) {
     const [state, formAction] = useActionState(updateProduct, initialState);
 
     return (
@@ -90,12 +49,23 @@ export function EditProductForm({ product, categories, brands }: { product: any,
                             </div>
                         </div>
                         <div className="p-6 bg-white dark:bg-gray-900/50 rounded-lg border dark:border-gray-800">
-                            <h2 className="text-lg font-semibold mb-4">Harga & Stok</h2>
+                            <h2 className="text-lg font-semibold mb-4">Harga & Pajak</h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <FormInput id="cost_price" label="Harga Modal (IDR)" type="number" defaultValue={product.cost_price} error={state.errors?.cost_price} />
                                 <FormInput id="selling_price" label="Harga Jual (IDR)" type="number" required defaultValue={product.selling_price} error={state.errors?.selling_price} />
-                                <FormInput id="sku" label="SKU (Stock Keeping Unit)" type="text" defaultValue={product.sku} error={state.errors?.sku} helpText="Biarkan kosong untuk generate otomatis." />
                             </div>
+                            <div className="mt-4">
+                                <div className="flex justify-between items-center">
+                                    <label className="block text-sm font-medium">Pajak</label>
+                                    <Link href="/dashboard/taxes" target="_blank" className="text-xs text-teal-600 hover:underline flex items-center gap-1">Kelola Pajak <ExternalLink size={12} /></Link>
+                                </div>
+                                <div className="mt-2 space-y-2">
+                                    {taxes.map(tax => (
+                                        <label key={tax.id} className="flex items-center gap-2"><input type="checkbox" name="tax_rate_ids" value={tax.id} defaultChecked={product.tax_rate_ids.includes(tax.id)} /> {tax.name} ({tax.rate}%)</label>
+                                    ))}
+                                    {taxes.length === 0 && <p className="text-xs text-gray-500">Belum ada tarif pajak.</p>}
+                                </div>
+                             </div>
                         </div>
                     </div>
                      <div className="lg:col-span-1 space-y-6">
@@ -105,7 +75,8 @@ export function EditProductForm({ product, categories, brands }: { product: any,
                         </div>
                          <div className="p-6 bg-white dark:bg-gray-900/50 rounded-lg border dark:border-gray-800">
                              <h2 className="text-lg font-semibold mb-4">Inventaris</h2>
-                             <FormCheckbox id="track_stock" label="Lacak Stok" description="Aktifkan jika ingin mengelola jumlah stok produk ini." defaultChecked={product.track_stock} error={state.errors?.track_stock} />
+                             <FormInput id="sku" label="SKU" type="text" defaultValue={product.sku} error={state.errors?.sku} helpText="Biarkan kosong untuk generate otomatis." />
+                             <FormCheckbox id="track_stock" label="Lacak Stok" description="Aktifkan untuk mengelola jumlah stok produk ini." defaultChecked={product.track_stock} error={state.errors?.track_stock} />
                         </div>
                     </div>
                 </div>
