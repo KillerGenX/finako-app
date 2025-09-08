@@ -2,51 +2,62 @@ Nama Aplikasi : Finako App
 Brand Color : Green Teal
 Bahasa Pemrograman : 	TypeScript
 Framework Frontend : 	Next.js (dengan App Router)
-Backend :REST API dari Supabase & (Logika Kustom)	Supabase Edge Functions
-Styling & UI	: Tailwind CSS + Shadcn ui
+Backend :REST API dari Supabase & (Logika Kustom)	Supabase Edge Functions & Database Functions (RPC)
+Styling & UI	: Tailwind CSS + Placeholder komponen bergaya Shadcn/UI
 Manajemen State : Zustand untuk Client State & SWR untuk Server State
 Pendekatan Mobile-First dan PWA
 
 ### Pengembangan Tahap 1 - Selesai
 
-Sejauh ini, kita telah berhasil membangun fondasi autentikasi, langganan, dan struktur dasar aplikasi yang kokoh. Berikut adalah rincian fitur dan alur yang sudah diimplementasikan:
+Sejauh ini, kita telah berhasil membangun fondasi autentikasi, langganan, dan panel admin yang kokoh. Berikut adalah rincian fitur yang sudah diimplementasikan:
 
-**1. Alur Autentikasi Pengguna (End-to-End):**
-- **Halaman Login (`/`):** Antarmuka untuk pengguna masuk, terhubung dengan Supabase Auth.
-- **Halaman Registrasi (`/register`):** Form pendaftaran fungsional yang mengirimkan data ke Supabase.
-- **Halaman Konfirmasi Registrasi (`/auth/confirm`):** Halaman yang memberi tahu pengguna untuk memeriksa email mereka setelah mendaftar.
-- **Middleware Keamanan (`/src/middleware.ts`):**
-    - Melindungi rute `/dashboard` dan semua sub-rutenya.
-    - Mencegah pengguna yang belum login mengakses dashboard.
-    - Mencegah pengguna yang sudah login mengakses kembali halaman login/registrasi.
-    - Memblokir pengguna yang belum memverifikasi email mereka untuk masuk ke dashboard.
+**1. Alur Autentikasi & Langganan (SaaS Core):**
+- **Registrasi, Login, dan Middleware Keamanan:** Alur lengkap untuk pendaftaran pengguna, verifikasi email, dan perlindungan rute.
+- **Sistem Langganan Berbasis "Isi Ulang":** Pengguna dapat memperpanjang langganan kapan saja. Logika backend secara cerdas "menumpuk" durasi baru.
+- **Alur Checkout Lengkap:** Termasuk halaman pemilihan durasi, pembuatan invoice, dan halaman pembayaran dengan opsi transfer manual.
+- **Sistem Notifikasi Pengguna:** Pengguna menerima notifikasi di dasbor mereka saat pembayaran disetujui atau ditolak.
 
-**2. Alur Langganan & Pembayaran (SaaS Core):**
-- **Database:** Tabel `invoices` telah ditambahkan untuk melacak setiap transaksi pembayaran.
-- **Halaman Billing (`/dashboard/billing`):** Menampilkan semua paket yang tersedia, termasuk paket "Trial" saat ini dan paket "Coming Soon". Secara cerdas mengarahkan pengguna yang memiliki invoice tertunda.
-- **Halaman Checkout (`/dashboard/billing/checkout`):** Pengguna dapat memilih durasi langganan (dengan diskon) dan melihat ringkasan pesanan sebelum melanjutkan.
-- **Halaman Pembayaran Dinamis (`/dashboard/billing/payment/[invoice_id]`):**
-    - Menampilkan detail invoice yang harus dibayar.
-    - Menyediakan opsi pembayaran "Transfer Manual".
-    - Memiliki form fungsional untuk mengunggah bukti pembayaran ke Supabase Storage.
-- **Backend Actions (Server-Side):**
-    - Server Action untuk membuat invoice baru, mencegah duplikasi.
-    - Server Action untuk mengunggah bukti transfer dan memperbarui status invoice menjadi `awaiting_confirmation`.
-    - Server Action (simulasi admin) untuk menyetujui pembayaran, yang akan mengaktifkan langganan pengguna (`subscriptions`) dan menandai invoice sebagai `paid`.
-- **Penguncian Aplikasi:** `Middleware` diperkuat untuk secara otomatis mengarahkan pengguna dengan langganan tidak aktif ke halaman billing.
+**2. Panel Admin Terintegrasi (`/admin`):**
+- **Keamanan Berbasis Peran:** Rute `/admin` dilindungi oleh `middleware` dan hanya dapat diakses oleh pengguna dengan peran `app_admin`.
+- **Dasbor Admin Dinamis:** Menampilkan statistik nyata (total pengguna, pendapatan, langganan aktif) yang diambil langsung dari database.
+- **Notifikasi Admin Fungsional:** Ikon lonceng di header secara proaktif memberitahu admin tentang pembayaran yang menunggu verifikasi.
+- **Halaman Verifikasi Pembayaran:**
+    - Menampilkan daftar invoice yang menunggu konfirmasi.
+    - Admin dapat melihat bukti pembayaran dalam modal yang interaktif.
+    - Terdapat aksi "Setujui" dan "Tolak" dengan modal konfirmasi untuk mencegah kesalahan.
+- **Halaman Histori Pembayaran:**
+    - Menampilkan semua riwayat invoice dengan pencarian, filter status, dan pagination.
+    - Admin dapat melihat detail invoice, mencetaknya, dan mensimulasikan pengiriman email ke pelanggan.
 
-**3. Otomatisasi Backend (Database Triggers):**
-- **Trigger `handle_new_user`:**
-    - Berjalan secara otomatis setiap kali pengguna baru mendaftar.
-    - Membuat `organization`, `profile`, dan `organization_member`.
-    - Secara otomatis membuat langganan percobaan (`trialing`) selama 14 hari.
+**3. Otomatisasi & Arsitektur Backend:**
+- **Database Functions (RPC):** Logika query yang kompleks (seperti di halaman histori) dipindahkan ke dalam database untuk performa dan keamanan maksimal.
+- **Database Triggers:** Pendaftaran pengguna baru secara otomatis membuat `organization`, `profile`, `organization_member`, dan langganan percobaan.
+- **Server Actions:** Semua mutasi data (login, logout, upload bukti, konfirmasi pembayaran, dll.) ditangani dengan aman di sisi server.
 
-**4. Struktur dan Layout Aplikasi:**
-- **Dashboard Layout & Provider:** Tata letak utama yang kokoh menggunakan CSS Grid, dengan sidebar yang bisa diciutkan.
-- **Komponen Header:** Menampilkan inisial nama pengguna dan fungsionalitas Logout yang aman.
-- **Halaman Dashboard Awal:** Berfungsi sebagai "papan loncat" ke modul-modul utama aplikasi.
+**4. Struktur dan Desain Aplikasi:**
+- **Layout Terpisah:** Dasbor pengguna dan panel admin memiliki layout dan header yang terpisah namun tetap konsisten secara visual.
+- **Sidebar Interaktif:** Sidebar dapat diciutkan untuk memberikan lebih banyak ruang kerja.
+- **Komponen Modern:** Menggunakan arsitektur Server & Client Component, dengan UI yang mendukung mode terang/gelap.
 
-**5. Konfigurasi Proyek:**
-- **Koneksi Supabase & Storage:** Telah dikonfigurasi, termasuk kebijakan keamanan untuk upload file.
-- **Styling:** Menggunakan Tailwind CSS.
-- **Favicon:** Logo aplikasi Finako telah ditetapkan.
+---
+
+### **Panduan untuk AI (Sesi Berikutnya)**
+
+Untuk menjaga konsistensi dan melanjutkan pengembangan, harap ikuti panduan berikut:
+
+**1. Prioritas Utama Berikutnya: Modul Produk**
+- **Tujuan:** Membangun fungsionalitas CRUD (Create, Read, Update, Delete) penuh untuk produk.
+- **Lokasi:** Semua halaman terkait produk harus berada di bawah `/dashboard/products`.
+- **Langkah Pertama:** Buat halaman utama di `/dashboard/products/page.tsx` yang menampilkan tabel produk (awalnya kosong) dan tombol "Tambah Produk Baru".
+
+**2. Pola Arsitektur yang Harus Diikuti:**
+- **Pengambilan Data (Read):** Untuk halaman yang menampilkan daftar data (seperti tabel produk), gunakan **Server Components**. Lakukan pengambilan data langsung di dalam komponen `async function Page()`. Jika diperlukan fitur interaktif seperti filter atau pencarian, gunakan pendekatan **RPC (Database Function)** seperti yang telah kita implementasikan di halaman Histori Admin.
+- **Mutasi Data (Create, Update, Delete):** Untuk semua aksi yang mengubah data, **selalu gunakan Server Actions**. Ini memastikan keamanan dan memungkinkan penggunaan `useFormStatus` atau `useTransition` di frontend untuk feedback UX yang baik.
+- **Interaktivitas UI:** Untuk komponen yang memerlukan state atau event handlers (seperti modal, dropdown, atau form interaktif), buatlah sebagai **Client Component** (`"use client"`) dan pisahkan dari logika pengambilan data server.
+
+**3. Konsistensi Desain:**
+- **Komponen:** Terus gunakan placeholder komponen bergaya Shadcn/UI yang telah kita definisikan untuk konsistensi.
+- **Warna:** Gunakan warna `Green Teal` (misalnya, `bg-teal-600`) untuk semua aksi primer (tombol simpan, konfirmasi, dll).
+- **Layout:** Pertahankan struktur layout yang ada. Halaman baru harus pas di dalam `<main>` area yang sudah disediakan.
+
+Dengan mengikuti panduan ini, kita dapat memastikan bahwa pengembangan aplikasi Finako berjalan lancar, aman, dan konsisten.
