@@ -2,10 +2,10 @@ import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import Link from 'next/link';
 import { PlusCircle } from 'lucide-react';
-import { ProductsTable } from './ProductsTable'; // Import the client component
+import { ProductsTable } from './ProductsTable';
 
 export default async function ProductsPage() {
-    const cookieStore = await cookies(); // FIX: Added await
+    const cookieStore = await cookies();
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -20,23 +20,21 @@ export default async function ProductsPage() {
 
     const { data: { user } } = await supabase.auth.getUser();
     
-    let products = [];
+    let productsWithStock = [];
     if (user) {
         const { data: member } = await supabase.from('organization_members').select('organization_id').eq('user_id', user.id).single();
         if (member) {
-            const { data: productData } = await supabase
-                .from('product_variants')
-                .select(`
-                    id,
-                    name,
-                    sku,
-                    selling_price,
-                    track_stock,
-                    created_at
-                `)
-                .eq('organization_id', member.organization_id)
-                .order('created_at', { ascending: false });
-            products = productData || [];
+            // Call the RPC function to get products with their total stock
+            const { data, error } = await supabase
+                .rpc('get_products_with_stock', {
+                    p_organization_id: member.organization_id
+                });
+            
+            if (error) {
+                console.error('Error fetching products with stock:', error);
+            } else {
+                productsWithStock = data || [];
+            }
         }
     }
 
@@ -60,7 +58,7 @@ export default async function ProductsPage() {
             </div>
             
             <div className="bg-white dark:bg-gray-900/50 p-6 rounded-lg border dark:border-gray-800">
-                 <ProductsTable products={products} />
+                 <ProductsTable products={productsWithStock} />
             </div>
         </div>
     );

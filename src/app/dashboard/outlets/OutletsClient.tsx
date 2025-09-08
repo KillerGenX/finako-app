@@ -21,9 +21,28 @@ const LOCATION_TYPES = [
     { id: 'other', label: 'Lainnya', icon: null },
 ];
 
-// ============== MODAL COMPONENT ==============
+// ============== SUB-COMPONENTS FOR ACTIONS ==============
 const initialState: OutletFormState = { message: '' };
 
+function SubmitButton({ isEditing }: { isEditing: boolean }) {
+    const { pending } = useFormStatus();
+    return (
+        <button type="submit" disabled={pending} className="inline-flex items-center justify-center px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50">
+            {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (isEditing ? 'Simpan' : 'Submit')}
+        </button>
+    );
+}
+
+function DeleteButton() {
+    const { pending } = useFormStatus();
+    return (
+        <button type="submit" disabled={pending} className="text-red-500 hover:text-red-700 disabled:opacity-50" title="Hapus">
+            {pending ? <Loader2 className="animate-spin" /> : <Trash2 size={18} />}
+        </button>
+    );
+}
+
+// ============== MODAL COMPONENT ==============
 const OutletModal = ({ isOpen, onClose, outlet }: { isOpen: boolean; onClose: () => void; outlet: Partial<Outlet> | null; }) => {
     const isEditing = !!outlet?.id;
     const action = isEditing ? updateOutlet : createOutlet;
@@ -76,7 +95,7 @@ const OutletModal = ({ isOpen, onClose, outlet }: { isOpen: boolean; onClose: ()
                     {state.message && state.message !== 'success' && <p className="text-red-500 text-sm mt-4 flex items-center gap-2"><Info size={16} />{state.message}</p>}
                     <div className="mt-6 flex justify-end gap-3">
                         <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-200 dark:bg-gray-600 rounded-lg">Batal</button>
-                        <button type="submit" className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">Submit</button>
+                        <SubmitButton isEditing={isEditing} />
                     </div>
                 </form>
             </div>
@@ -88,8 +107,10 @@ const OutletModal = ({ isOpen, onClose, outlet }: { isOpen: boolean; onClose: ()
 export function OutletsClient({ allOutlets }: { allOutlets: Outlet[] }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingOutlet, setEditingOutlet] = useState<Partial<Outlet> | null>(null);
+    const [modalKey, setModalKey] = useState(Date.now());
 
     const handleOpenModal = (outlet: Partial<Outlet> | null = null) => {
+        setModalKey(Date.now());
         setEditingOutlet(outlet);
         setIsModalOpen(true);
     };
@@ -141,7 +162,7 @@ export function OutletsClient({ allOutlets }: { allOutlets: Outlet[] }) {
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex gap-4 justify-end">
                                                 <button onClick={() => handleOpenModal(outlet)} className="text-blue-500 hover:text-blue-700" title="Edit"><Edit size={18} /></button>
-                                                <form action={deleteOutlet}><input type="hidden" name="outlet_id" value={outlet.id} /><button type="submit"><Trash2 size={18}/></button></form>
+                                                <form action={deleteOutlet}><input type="hidden" name="outlet_id" value={outlet.id} /><DeleteButton /></form>
                                             </div>
                                         </td>
                                     </tr>
@@ -151,7 +172,7 @@ export function OutletsClient({ allOutlets }: { allOutlets: Outlet[] }) {
                     </div>
                 )}
             </div>
-            <OutletModal isOpen={isModalOpen} onClose={handleCloseModal} outlet={editingOutlet} />
+            <OutletModal key={modalKey} isOpen={isModalOpen} onClose={handleCloseModal} outlet={editingOutlet} />
         </>
     );
 }

@@ -93,8 +93,10 @@ const CategoryModal = ({ isOpen, onClose, category, allCategories }: { isOpen: b
 export function CategoriesTable({ allCategories }: { allCategories: Category[] }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Partial<Category> | null>(null);
+    const [modalKey, setModalKey] = useState(Date.now());
 
     const handleOpenModal = (category: Partial<Category> | null = null) => {
+        setModalKey(Date.now()); // Generate new key to reset modal state
         setEditingCategory(category);
         setIsModalOpen(true);
     };
@@ -149,7 +151,7 @@ export function CategoriesTable({ allCategories }: { allCategories: Category[] }
                     </div>
                 )}
             </div>
-            <CategoryModal isOpen={isModalOpen} onClose={handleCloseModal} category={editingCategory} allCategories={allCategories} />
+            <CategoryModal key={modalKey} isOpen={isModalOpen} onClose={handleCloseModal} category={editingCategory} allCategories={allCategories} />
         </>
     );
 }
