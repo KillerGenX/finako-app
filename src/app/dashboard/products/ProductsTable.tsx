@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { MoreHorizontal, Edit, Trash2, Loader2, PlusCircle, Warehouse } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { deleteProduct } from './actions';
-import { useFormStatus, useActionState } from 'react-dom';
+import { useFormStatus } from 'react-dom';
 
 function DeleteButton() {
     const { pending } = useFormStatus();
@@ -80,6 +80,7 @@ export function ProductsTable({ products }: { products: any[] }) {
             <table className="min-w-full divide-y dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-800">
                     <tr>
+                        <th scope="col" className="w-20 px-6 py-3"></th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Nama Produk</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Harga Jual</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Total Stok</th>
@@ -92,6 +93,14 @@ export function ProductsTable({ products }: { products: any[] }) {
                 <tbody className="bg-white dark:bg-gray-900 divide-y dark:divide-gray-700">
                     {products.map((product, index) => (
                         <tr key={product.id}>
+                            <td className="px-6 py-4">
+                                <img 
+                                    src={product.image_url || '/Finako JPG.jpg'} 
+                                    alt={product.name} 
+                                    className="h-10 w-10 rounded-md object-cover"
+                                    onError={(e) => { e.currentTarget.src = '/Finako JPG.jpg'; }} // Fallback for broken links
+                                />
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="text-sm font-medium text-gray-900 dark:text-white">{product.name}</div>
                                 <div className="text-sm text-gray-500 dark:text-gray-400">{product.sku || 'No SKU'}</div>
