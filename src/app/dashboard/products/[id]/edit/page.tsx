@@ -27,7 +27,7 @@ export default async function EditProductPage({ params }: { params: { id: string
     // Fetch product, categories, and brands in parallel
     const productPromise = supabase.from('product_variants').select(`
         id, name, sku, selling_price, cost_price, track_stock,
-        product:products ( description, category_id, brand_id )
+        product:products ( description, category_id, brand_id, image_url )
     `).eq('id', id).eq('organization_id', orgId).single();
     
     const categoriesPromise = supabase.from('product_categories').select('id, name').eq('organization_id', orgId).order('name');
@@ -49,6 +49,7 @@ export default async function EditProductPage({ params }: { params: { id: string
         description: productResult.data.product?.description || '',
         category_id: productResult.data.product?.category_id || null,
         brand_id: productResult.data.product?.brand_id || null,
+        image_url: productResult.data.product?.image_url || null,
     };
 
     return <EditProductForm product={productData} categories={categoriesResult.data || []} brands={brandsResult.data || []} />;

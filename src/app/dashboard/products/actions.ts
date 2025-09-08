@@ -6,6 +6,9 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+
 const ProductSchema = z.object({
     name: z.string().min(3, { message: "Nama produk harus diisi (minimal 3 karakter)." }),
     selling_price: z.coerce.number().min(0, { message: "Harga jual harus angka positif." }),
@@ -15,23 +18,18 @@ const ProductSchema = z.object({
     track_stock: z.boolean(),
     category_id: z.string().nullable().optional(),
     brand_id: z.string().nullable().optional(),
+    image_url: z
+        .any()
+        .refine((file) => !file || file.size === 0 || file.size <= MAX_FILE_SIZE, `Ukuran file maksimal adalah 5MB.`)
+        .refine((file) => !file || file.size === 0 || ACCEPTED_IMAGE_TYPES.includes(file.type), ".jpg, .jpeg, .png and .webp files are accepted."),
 });
 
 export type FormState = {
     message: string;
-    errors?: {
-        name?: string[];
-        selling_price?: string[];
-        cost_price?: string[];
-        sku?: string[];
-        description?: string[];
-        track_stock?: string[];
-        category_id?: string[];
-        brand_id?: string[];
-    };
+    errors?: Record<string, string[] | undefined>;
 };
 
-// ... (rest of the file remains the same)
+// ... (helper functions remain the same)
 
 async function getSupabaseAndOrgId() {
     const cookieStore = await cookies();
@@ -59,9 +57,29 @@ function generateSku(productName: string): string {
     return `${prefix}-${randomNumber}`;
 }
 
+async function handleImageUpload(supabase: any, organization_id: string, imageFile: File) {
+    if (!imageFile || imageFile.size === 0) {
+        return null;
+    }
+    const fileExtension = imageFile.name.split('.').pop();
+    const fileName = `${organization_id}/${Date.now()}.${fileExtension}`;
+
+    const { error: uploadError } = await supabase.storage
+        .from('product_images')
+        .upload(fileName, imageFile);
+
+    if (uploadError) {
+        throw new Error(`Gagal mengunggah gambar: ${uploadError.message}`);
+    }
+
+    const { data } = supabase.storage.from('product_images').getPublicUrl(fileName);
+    return data.publicUrl;
+}
+
 export async function createProduct(prevState: FormState, formData: FormData): Promise<FormState> {
     try {
         const { supabase, organization_id } = await getSupabaseAndOrgId();
+        
         const validatedFields = ProductSchema.safeParse({
             name: formData.get('name'),
             selling_price: formData.get('selling_price'),
@@ -71,26 +89,25 @@ export async function createProduct(prevState: FormState, formData: FormData): P
             track_stock: formData.get('track_stock') === 'on',
             category_id: formData.get('category_id'),
             brand_id: formData.get('brand_id'),
+            image_url: formData.get('image_url'),
         });
 
         if (!validatedFields.success) {
             return { message: "Validasi gagal.", errors: validatedFields.error.flatten().fieldErrors };
         }
         
-        let { name, selling_price, cost_price, sku, description, track_stock, category_id, brand_id } = validatedFields.data;
+        let { name, selling_price, cost_price, sku, description, track_stock, category_id, brand_id, image_url: imageFile } = validatedFields.data;
 
-        if (!sku || sku.trim() === '') {
-            sku = generateSku(name);
-        }
+        if (!sku || sku.trim() === '') sku = generateSku(name);
         
-        const { data: product, error: productError } = await supabase
-            .from('products')
-            .insert({ 
-                organization_id, name, description, product_type: 'SINGLE',
-                category_id: category_id === 'null' ? null : category_id,
-                brand_id: brand_id === 'null' ? null : brand_id,
-            })
-            .select('id').single();
+        const newImageUrl = await handleImageUpload(supabase, organization_id, imageFile);
+
+        const { data: product, error: productError } = await supabase.from('products').insert({ 
+            organization_id, name, description, product_type: 'SINGLE',
+            category_id: category_id === 'null' ? null : category_id,
+            brand_id: brand_id === 'null' ? null : brand_id,
+            image_url: newImageUrl,
+        }).select('id').single();
 
         if (productError) throw new Error(`Error saat menyimpan produk: ${productError.message}`);
 
@@ -130,38 +147,44 @@ export async function updateProduct(prevState: FormState, formData: FormData): P
             track_stock: formData.get('track_stock') === 'on',
             category_id: formData.get('category_id'),
             brand_id: formData.get('brand_id'),
+            image_url: formData.get('image_url'),
         });
 
         if (!validatedFields.success) {
             return { message: "Validasi gagal.", errors: validatedFields.error.flatten().fieldErrors };
         }
         
-        let { name, selling_price, cost_price, sku, description, track_stock, category_id, brand_id } = validatedFields.data;
+        let { name, selling_price, cost_price, sku, description, track_stock, category_id, brand_id, image_url: imageFile } = validatedFields.data;
 
-        if (!sku || sku.trim() === '') {
-            sku = generateSku(name);
-        }
+        if (!sku || sku.trim() === '') sku = generateSku(name);
 
-        const { data: variant, error: fetchError } = await supabase.from('product_variants').select('product_id').eq('id', variantId).eq('organization_id', organization_id).single();
-        if (fetchError || !variant) throw new Error("Varian produk tidak ditemukan.");
-        
+        const { data: variant, error: fetchError } = await supabase.from('product_variants').select('product_id, product:products(id, image_url)').eq('id', variantId).single();
+        if (fetchError || !variant || !variant.product) throw new Error("Varian produk tidak ditemukan.");
+        const { id: productId, image_url: oldImageUrl } = variant.product;
+
+        const newImageUrl = await handleImageUpload(supabase, organization_id, imageFile);
+
         const { error: productError } = await supabase.from('products').update({ 
             name, description,
             category_id: category_id === 'null' ? null : category_id,
             brand_id: brand_id === 'null' ? null : brand_id,
-        }).eq('id', variant.product_id);
+            image_url: newImageUrl === null ? oldImageUrl : newImageUrl,
+        }).eq('id', productId);
             
         if (productError) throw new Error(`Error saat memperbarui produk: ${productError.message}`);
 
+        if (newImageUrl && oldImageUrl) {
+            const oldImageName = oldImageUrl.split('/').pop();
+            if(oldImageName) await supabase.storage.from('product_images').remove([`${organization_id}/${oldImageName}`]);
+        }
+        
         const { error: variantError } = await supabase.from('product_variants').update({ 
             name, selling_price, cost_price: cost_price || 0, sku, track_stock, 
             inventory_tracking_method: track_stock ? 'by_quantity' : 'none' 
         }).eq('id', variantId);
         
         if (variantError) {
-            if (variantError.code === '23505') {
-                 return { message: `Error: SKU '${sku}' sudah ada.`, errors: { sku: ["SKU ini sudah digunakan."] } };
-            }
+             if (variantError.code === '23505') return { message: `Error: SKU '${sku}' sudah ada.`, errors: { sku: ["SKU ini sudah digunakan."] } };
             throw new Error(`Error saat memperbarui varian: ${variantError.message}`);
         }
     } catch (e: any) {
@@ -176,10 +199,16 @@ export async function deleteProduct(formData: FormData): Promise<{ message: stri
     const variantId = formData.get('variant_id') as string;
     try {
         const { supabase, organization_id } = await getSupabaseAndOrgId();
-        const { data: variant, error: fetchError } = await supabase.from('product_variants').select('product_id').eq('id', variantId).eq('organization_id', organization_id).single();
+        const { data: variant, error: fetchError } = await supabase.from('product_variants').select('product_id, product:products(image_url)').eq('id', variantId).eq('organization_id', organization_id).single();
         if (fetchError || !variant) throw new Error("Produk tidak ditemukan.");
+        
         const { error: deleteError } = await supabase.from('products').delete().eq('id', variant.product_id);
         if (deleteError) throw new Error(`Gagal menghapus produk: ${deleteError.message}`);
+
+        if (variant.product?.image_url) {
+            const oldImageName = variant.product.image_url.split('/').pop();
+            if(oldImageName) await supabase.storage.from('product_images').remove([`${organization_id}/${oldImageName}`]);
+        }
     } catch (e: any) {
         console.error(e);
         return { message: e.message };

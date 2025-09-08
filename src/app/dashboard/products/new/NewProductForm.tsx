@@ -5,6 +5,7 @@ import { useFormStatus } from 'react-dom';
 import { createProduct, FormState } from '../actions';
 import Link from 'next/link';
 import { ArrowLeft, Loader2, Info, ExternalLink } from 'lucide-react';
+import { ImageUpload } from '../ImageUpload'; // Import the new component
 
 type SelectOption = {
     id: string;
@@ -76,6 +77,7 @@ export function NewProductForm({ categories, brands }: { categories: SelectOptio
             
             <form action={formAction}>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* Left Side: Main Content */}
                     <div className="lg:col-span-2 space-y-6">
                         <div className="p-6 bg-white dark:bg-gray-900/50 rounded-lg border dark:border-gray-800">
                             <h2 className="text-lg font-semibold mb-4">Informasi Dasar</h2>
@@ -96,7 +98,14 @@ export function NewProductForm({ categories, brands }: { categories: SelectOptio
                                 <FormInput id="sku" label="SKU (Stock Keeping Unit)" type="text" error={state.errors?.sku} helpText="Biarkan kosong untuk generate otomatis." />
                             </div>
                         </div>
+                    </div>
+                    {/* Right Side: Image and other attributes */}
+                    <div className="lg:col-span-1 space-y-6">
                         <div className="p-6 bg-white dark:bg-gray-900/50 rounded-lg border dark:border-gray-800">
+                             <h2 className="text-lg font-semibold mb-4">Media</h2>
+                             <ImageUpload error={state.errors?.image_url} />
+                        </div>
+                         <div className="p-6 bg-white dark:bg-gray-900/50 rounded-lg border dark:border-gray-800">
                              <h2 className="text-lg font-semibold mb-4">Inventaris</h2>
                              <FormCheckbox id="track_stock" label="Lacak Stok" description="Aktifkan jika ingin mengelola jumlah stok produk ini." error={state.errors?.track_stock} />
                         </div>

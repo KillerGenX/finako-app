@@ -5,6 +5,7 @@ import { useFormStatus } from 'react-dom';
 import { updateProduct, FormState } from '../../actions';
 import Link from 'next/link';
 import { ArrowLeft, Loader2, Info, ExternalLink } from 'lucide-react';
+import { ImageUpload } from '../../ImageUpload'; // Corrected path
 
 type SelectOption = {
     id: string;
@@ -76,7 +77,7 @@ export function EditProductForm({ product, categories, brands }: { product: any,
             <form action={formAction}>
                 <input type="hidden" name="variant_id" value={product.id} />
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-2 space-y-6">
+                     <div className="lg:col-span-2 space-y-6">
                         <div className="p-6 bg-white dark:bg-gray-900/50 rounded-lg border dark:border-gray-800">
                             <h2 className="text-lg font-semibold mb-4">Informasi Dasar</h2>
                             <div className="space-y-4">
@@ -96,9 +97,15 @@ export function EditProductForm({ product, categories, brands }: { product: any,
                                 <FormInput id="sku" label="SKU (Stock Keeping Unit)" type="text" defaultValue={product.sku} error={state.errors?.sku} helpText="Biarkan kosong untuk generate otomatis." />
                             </div>
                         </div>
+                    </div>
+                     <div className="lg:col-span-1 space-y-6">
                         <div className="p-6 bg-white dark:bg-gray-900/50 rounded-lg border dark:border-gray-800">
-                            <h2 className="text-lg font-semibold mb-4">Inventaris</h2>
-                            <FormCheckbox id="track_stock" label="Lacak Stok" description="Aktifkan jika ingin mengelola jumlah stok produk ini." defaultChecked={product.track_stock} error={state.errors?.track_stock} />
+                             <h2 className="text-lg font-semibold mb-4">Media</h2>
+                             <ImageUpload existingImageUrl={product.image_url} error={state.errors?.image_url} />
+                        </div>
+                         <div className="p-6 bg-white dark:bg-gray-900/50 rounded-lg border dark:border-gray-800">
+                             <h2 className="text-lg font-semibold mb-4">Inventaris</h2>
+                             <FormCheckbox id="track_stock" label="Lacak Stok" description="Aktifkan jika ingin mengelola jumlah stok produk ini." defaultChecked={product.track_stock} error={state.errors?.track_stock} />
                         </div>
                     </div>
                 </div>
