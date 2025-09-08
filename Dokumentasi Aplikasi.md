@@ -14,20 +14,20 @@
 
 ### Status Pengembangan
 
-#### **Fase 1: Fondasi & Kerangka Produk - Selesai**
+#### **Fase 1: Fondasi & Kerangka Inventaris - Selesai**
 
-Tahap awal ini membangun fondasi aplikasi dan kerangka kerja untuk manajemen produk, namun **belum mencakup manajemen inventaris/stok**.
+Tahap awal ini membangun fondasi aplikasi dan mekanisme pergerakan stok.
 
 **1. Modul Inti yang Fungsional:**
 - **Autentikasi & Langganan:** Alur lengkap untuk registrasi, login, keamanan, dan manajemen langganan.
 - **Panel Admin:** Dasbor fungsional untuk verifikasi dan histori pembayaran.
 - **Manajemen Kategori:** CRUD penuh untuk kategori produk, termasuk struktur hierarkis.
-- **Manajemen Outlet/Lokasi:** CRUD penuh untuk mengelola semua lokasi fisik bisnis (`/dashboard/outlets`).
+- **Manajemen Outlet/Lokasi:** CRUD penuh untuk mengelola semua lokasi fisik bisnis.
 
 **2. Modul Produk & Inventaris (Kerangka Dasar):**
 - **CRUD Entitas Produk:** Kemampuan untuk membuat, membaca, memperbarui, dan menghapus **definisi produk** (tipe `SINGLE`).
-- **Fitur Pendukung:** Validasi Zod, generate SKU otomatis, dan integrasi pemilihan kategori.
-- **Keterbatasan Saat Ini:** Fungsionalitas `track_stock` baru sebatas checkbox. Belum ada cara untuk memasukkan, mengelola, atau melihat **kuantitas stok**.
+- **Manajemen Pergerakan Stok:** Fungsionalitas penuh untuk Pemasukan Stok, Penyesuaian, dan Transfer Antar Outlet. Total stok sudah divisualisasikan.
+- **Keterbatasan Saat Ini:** Definisi produk `SINGLE` itu sendiri **belum lengkap**. Masih kekurangan atribut penting seperti Harga Modal, Foto, Merek, dan Pajak.
 
 **3. Arsitektur & Desain:**
 - **Server Actions & RSC:** Menggunakan arsitektur modern Next.js yang siap untuk masa depan (Next.js 15).
@@ -37,28 +37,32 @@ Tahap awal ini membangun fondasi aplikasi dan kerangka kerja untuk manajemen pro
 
 ### **Peta Jalan & Panduan untuk AI (Sesi Berikutnya)**
 
-Pengembangan selanjutnya akan berfokus untuk membangun fungsionalitas **manajemen inventaris** yang sebenarnya.
+Pengembangan selanjutnya akan berfokus untuk **melengkapi atribut produk tunggal** sebelum beralih ke tipe produk yang lebih kompleks.
 
-#### **Fase 2: Manajemen Stok Dasar (Prioritas Utama Berikutnya)**
-- **Tujuan:** Menghidupkan fungsionalitas pelacakan stok. Pengguna harus bisa menjawab, "Berapa banyak stok produk X yang saya miliki, dan di mana lokasinya?"
-- **Tabel Database Utama:** `inventory_stock_levels`, `inventory_stock_movements`.
-- **Rencana Implementasi:**
-    1.  **Antarmuka Manajemen Stok:**
-        - Buat halaman detail produk baru di `/dashboard/products/[id]/inventory` yang akan menjadi pusat kontrol stok untuk produk tersebut.
-        - Di halaman ini, tampilkan daftar stok produk di setiap outlet yang ada (mengambil data dari `inventory_stock_levels`).
-    2.  **Implementasi Aksi Stok:**
-        - Buat *Server Actions* untuk mencatat pergerakan stok di `inventory_stock_movements`, yang kemudian (melalui trigger/fungsi DB) akan memperbarui `inventory_stock_levels`.
-        - **Fitur Awal:**
-            - **"Pemasukan Stok"**: Untuk mencatat stok awal atau pembelian baru ke outlet tertentu.
-            - **"Penyesuaian Stok"**: Untuk menambah/mengurangi stok karena alasan lain (misal: rusak, hilang).
-    3.  **Visualisasi Kuantitas Stok:**
-        - Perbarui tabel utama di `/dashboard/products` untuk menampilkan **total kuantitas stok** (jumlah dari semua outlet) untuk setiap produk, bukan hanya teks "Dilacak". Ini memerlukan query yang lebih kompleks untuk menjumlahkan stok dari `inventory_stock_levels`.
-- **Pola Arsitektur:** Tetap gunakan **Server Components** untuk fetching data dan **Server Actions + Zod** untuk mutasi data. Pisahkan form interaktif (misal: form penyesuaian stok) menjadi **Client Components**.
+#### **Fase 2: Melengkapi Atribut Produk `SINGLE` (Prioritas Utama Berikutnya)**
+- **Tujuan:** Membuat definisi produk tunggal menjadi lengkap dan fungsional sepenuhnya, siap untuk analisis bisnis dasar.
+- **Tabel Database Utama:** `product_variants` (untuk `cost_price`), `products` (untuk `image_url`, `brand_id`), `brands`, `tax_rates`.
+- **Rencana Implementasi (berurutan):**
+    1.  **Implementasi Harga Modal (`cost_price`):** (Selesai)
+        - Menambahkan field "Harga Modal" ke form Tambah/Edit Produk.
+    2.  **CRUD & Integrasi Merek (`brands`):**
+        - Buat halaman manajemen baru di `/dashboard/brands` untuk CRUD Merek.
+        - **Desain Akses:** Halaman ini tidak akan ditambahkan ke sidebar utama. Akses akan melalui *shortcut* kontekstual.
+        - Tambahkan dropdown pilihan Merek di form Tambah/Edit Produk, lengkap dengan link "(Kelola Merek)".
+    3.  **Implementasi Foto Produk (`image_url`):**
+        - Integrasikan Supabase Storage ke dalam aplikasi.
+        - Buat UI untuk unggah gambar (pilih file, pratinjau, progress bar) di form Tambah/Edit Produk.
+        - Perbarui *Server Action* untuk menangani unggahan file, mendapatkan URL, dan menyimpannya ke tabel `products`.
+    4.  **CRUD & Integrasi Pajak (`tax_rates`):**
+        - Buat halaman manajemen baru di `/dashboard/taxes` untuk CRUD Tarif Pajak.
+        - Akses juga akan melalui *shortcut* dari form produk.
+
+- **Pola Arsitektur:** Tetap gunakan **Server Components** untuk fetching data dan **Server Actions + Zod** untuk mutasi data. Pisahkan komponen interaktif menjadi **Client Components**.
 
 #### **Fase 3 & Seterusnya (Rencana Masa Depan)**
-- **Produk dengan Varian:** Setelah stok dasar solid, kembangkan fungsionalitas untuk produk dengan beberapa varian (misal: Baju berdasarkan ukuran/warna).
-- **Produk Komposit/Rakitan:** Implementasikan produk "resep" (misal: PC Rakitan).
-- **Pelacakan Nomor Seri:** Tambahkan pelacakan per unit untuk barang-barang seperti elektronik.
+- **Produk dengan Varian:** Setelah produk `SINGLE` solid, kembangkan fungsionalitas untuk produk dengan beberapa varian.
+- **Produk Komposit/Rakitan:** Implementasikan produk "resep".
+- **Pelacakan Nomor Seri:** Tambahkan pelacakan per unit.
 - **Modul Pelanggan & Transaksi:** Setelah modul produk & inventaris matang, lanjutkan ke manajemen pelanggan dan Point of Sale (POS).
 ---
 **Catatan Tambahan:**
