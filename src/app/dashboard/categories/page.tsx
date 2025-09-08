@@ -1,8 +1,8 @@
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
-import { NewProductForm } from './NewProductForm'; // We will create this client component
+import { CategoriesTable } from './CategoriesTable'; 
 
-export default async function NewProductPage() {
+export default async function CategoriesPage() {
     const cookieStore = cookies();
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,12 +18,23 @@ export default async function NewProductPage() {
         if (member) {
             const { data: categoryData } = await supabase
                 .from('product_categories')
-                .select('id, name')
+                .select(`
+                    id,
+                    name,
+                    description,
+                    parent_id,
+                    parent:parent_id ( name )
+                `)
                 .eq('organization_id', member.organization_id)
                 .order('name', { ascending: true });
             categories = categoryData || [];
         }
     }
 
-    return <NewProductForm categories={categories} />;
+    return (
+        <div>
+            {/* The header (title and add button) is now handled inside the client component */}
+            <CategoriesTable allCategories={categories} />
+        </div>
+    );
 }

@@ -12,6 +12,7 @@ const ProductSchema = z.object({
     sku: z.string().optional(),
     description: z.string().optional(),
     track_stock: z.boolean(),
+    category_id: z.string().nullable().optional(),
 });
 
 export type FormState = {
@@ -22,6 +23,7 @@ export type FormState = {
         sku?: string[];
         description?: string[];
         track_stock?: string[];
+        category_id?: string[];
     };
 };
 
@@ -39,10 +41,9 @@ async function getSupabaseAndOrgId() {
     return { supabase, organization_id: member.organization_id };
 }
 
-// Function to generate a unique SKU
 function generateSku(productName: string): string {
     const prefix = productName.substring(0, 3).toUpperCase();
-    const randomNumber = Math.floor(1000 + Math.random() * 9000); // Generates a 4-digit number
+    const randomNumber = Math.floor(1000 + Math.random() * 9000);
     return `${prefix}-${randomNumber}`;
 }
 
@@ -56,27 +57,28 @@ export async function createProduct(prevState: FormState, formData: FormData): P
             sku: formData.get('sku'),
             description: formData.get('description'),
             track_stock: formData.get('track_stock') === 'on',
+            category_id: formData.get('category_id'),
         });
 
         if (!validatedFields.success) {
-            return {
-                message: "Validasi gagal. Mohon periksa kembali isian Anda.",
-                errors: validatedFields.error.flatten().fieldErrors,
-            };
+            return { message: "Validasi gagal.", errors: validatedFields.error.flatten().fieldErrors };
         }
         
-        let { name, selling_price, sku, description, track_stock } = validatedFields.data;
+        let { name, selling_price, sku, description, track_stock, category_id } = validatedFields.data;
 
-        // --- SKU GENERATION LOGIC ---
         if (!sku || sku.trim() === '') {
             sku = generateSku(name);
-            // Optional: You could add a loop here to check for SKU uniqueness in the DB, 
-            // but the chance of collision is low for this implementation.
         }
         
         const { data: product, error: productError } = await supabase
             .from('products')
-            .insert({ organization_id, name, description, product_type: 'SINGLE' })
+            .insert({ 
+                organization_id, 
+                name, 
+                description, 
+                product_type: 'SINGLE',
+                category_id: category_id === 'null' ? null : category_id,
+            })
             .select('id').single();
 
         if (productError) throw new Error(`Error saat menyimpan produk: ${productError.message}`);
@@ -88,16 +90,15 @@ export async function createProduct(prevState: FormState, formData: FormData): P
                 product_id: product.id,
                 name,
                 selling_price,
-                sku, // Use the potentially generated SKU
+                sku,
                 track_stock,
                 inventory_tracking_method: track_stock ? 'by_quantity' : 'none',
             });
         
         if (variantError) {
             await supabase.from('products').delete().eq('id', product.id);
-            // Handle potential unique constraint violation for SKU
-            if (variantError.code === '23505') { // Postgres unique violation code
-                 return { message: `Error: SKU '${sku}' sudah ada. Harap gunakan SKU lain atau biarkan kosong untuk generate otomatis.`, errors: { sku: ["SKU ini sudah digunakan."] } };
+            if (variantError.code === '23505') {
+                 return { message: `Error: SKU '${sku}' sudah ada.`, errors: { sku: ["SKU ini sudah digunakan."] } };
             }
             throw new Error(`Error saat menyimpan varian produk: ${variantError.message}`);
         }
@@ -122,15 +123,15 @@ export async function updateProduct(prevState: FormState, formData: FormData): P
             sku: formData.get('sku'),
             description: formData.get('description'),
             track_stock: formData.get('track_stock') === 'on',
+            category_id: formData.get('category_id'),
         });
 
         if (!validatedFields.success) {
-            return { message: "Validasi gagal.", errors: validatedFields.error.flatten().fieldErrors, };
+            return { message: "Validasi gagal.", errors: validatedFields.error.flatten().fieldErrors };
         }
         
-        let { name, selling_price, sku, description, track_stock } = validatedFields.data;
+        let { name, selling_price, sku, description, track_stock, category_id } = validatedFields.data;
 
-        // --- SKU GENERATION LOGIC (FOR UPDATE) ---
         if (!sku || sku.trim() === '') {
             sku = generateSku(name);
         }
@@ -146,7 +147,11 @@ export async function updateProduct(prevState: FormState, formData: FormData): P
         
         const { error: productError } = await supabase
             .from('products')
-            .update({ name, description })
+            .update({ 
+                name, 
+                description,
+                category_id: category_id === 'null' ? null : category_id,
+            })
             .eq('id', variant.product_id);
             
         if (productError) throw new Error(`Error saat memperbarui produk: ${productError.message}`);

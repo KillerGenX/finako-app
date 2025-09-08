@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, createContext, useContext, ReactNode } from 'react';
+import { useState, createContext, useContext, ReactNode, Fragment } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, ShoppingCart, Package, Users, LineChart, Settings, ChevronLeft, CreditCard } from 'lucide-react';
+import { Home, ShoppingCart, Package, Users, LineChart, Settings, ChevronLeft, CreditCard, Folder } from 'lucide-react';
 import Header from './Header'; 
 
 const SidebarContext = createContext({
@@ -17,14 +17,22 @@ const Sidebar = () => {
     const { isCollapsed, toggleSidebar } = useContext(SidebarContext);
     const pathname = usePathname();
     
-    const navLinks = [
-        { href: "/dashboard", icon: Home, label: "Dashboard" },
-        { href: "/dashboard/transactions", icon: ShoppingCart, label: "Transaksi" },
-        { href: "/dashboard/products", icon: Package, label: "Produk" },
-        { href: "/dashboard/customers", icon: Users, label: "Pelanggan" },
-        { href: "/dashboard/reports", icon: LineChart, label: "Laporan" },
-        { href: "/dashboard/billing", icon: CreditCard, label: "Langganan" },
-        { href: "/dashboard/settings", icon: Settings, label: "Pengaturan" },
+    // Grouped navigation links
+    const navLinkGroups = [
+        [
+            { href: "/dashboard", icon: Home, label: "Dashboard" }
+        ],
+        [
+            { href: "/dashboard/transactions", icon: ShoppingCart, label: "Transaksi" },
+            { href: "/dashboard/products", icon: Package, label: "Produk" },
+            { href: "/dashboard/categories", icon: Folder, label: "Kategori" },
+            { href: "/dashboard/customers", icon: Users, label: "Pelanggan" },
+        ],
+        [
+            { href: "/dashboard/reports", icon: LineChart, label: "Laporan" },
+            { href: "/dashboard/billing", icon: CreditCard, label: "Langganan" },
+            { href: "/dashboard/settings", icon: Settings, label: "Pengaturan" },
+        ]
     ];
 
     return (
@@ -36,11 +44,18 @@ const Sidebar = () => {
             </div>
             <div className="flex-1 overflow-y-auto scrollbar-hide">
                 <nav className="grid items-start px-2 text-sm font-medium lg:px-4 py-4">
-                    {navLinks.map(({ href, icon: Icon, label }) => (
-                        <Link key={href} href={href} title={label} className={`flex items-center gap-4 rounded-lg px-3 py-3 my-1 transition-all hover:text-teal-600 dark:hover:text-teal-400 ${pathname.startsWith(href) && href !== "/dashboard" || pathname === href ? 'bg-gray-200 dark:bg-gray-700 text-teal-600 dark:text-teal-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                            <Icon className="h-5 w-5 flex-shrink-0" />
-                            <span className={`overflow-hidden transition-opacity whitespace-nowrap ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}>{label}</span>
-                        </Link>
+                    {navLinkGroups.map((group, groupIndex) => (
+                        <Fragment key={groupIndex}>
+                            {group.map(({ href, icon: Icon, label }) => (
+                                <Link key={href} href={href} title={label} className={`flex items-center gap-4 rounded-lg px-3 py-3 my-1 transition-all hover:text-teal-600 dark:hover:text-teal-400 ${pathname.startsWith(href) && href !== "/dashboard" || pathname === href ? 'bg-gray-200 dark:bg-gray-700 text-teal-600 dark:text-teal-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                                    <Icon className="h-5 w-5 flex-shrink-0" />
+                                    <span className={`overflow-hidden transition-opacity whitespace-nowrap ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}>{label}</span>
+                                </Link>
+                            ))}
+                            {groupIndex < navLinkGroups.length - 1 && (
+                                <hr className={`my-3 border-gray-200 dark:border-gray-700 ${isCollapsed ? 'mx-auto w-8' : ''}`} />
+                            )}
+                        </Fragment>
                     ))}
                 </nav>
             </div>
