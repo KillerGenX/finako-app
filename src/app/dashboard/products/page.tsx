@@ -49,10 +49,10 @@ export default async function ProductsPage() {
                         Kelola semua produk, varian, dan stok di semua outlet Anda.
                     </p>
                 </div>
-                <Link href="/dashboard/products/new">
+                <Link href="/dashboard/products/templates/new">
                     <button className="inline-flex items-center px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">
                         <PlusCircle className="h-5 w-5 mr-2" />
-                        Tambah Produk Baru
+                        Buat Produk Baru
                     </button>
                 </Link>
             </div>

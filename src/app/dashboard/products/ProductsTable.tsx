@@ -63,12 +63,12 @@ export function ProductsTable({ products }: { products: any[] }) {
     if (products.length === 0) {
         return (
             <div className="text-center py-12">
-                <h3 className="text-xl font-semibold">Belum Ada Produk</h3>
-                <p className="text-gray-500 mt-2">Mulai dengan menambahkan produk pertama Anda.</p>
-                <Link href="/dashboard/products/new">
+                <h3 className="text-xl font-semibold">Belum Ada Varian Produk</h3>
+                <p className="text-gray-500 mt-2">Mulai dengan membuat template produk baru untuk menambahkan varian.</p>
+                <Link href="/dashboard/products/templates/new">
                     <button className="mt-4 inline-flex items-center px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">
                         <PlusCircle className="h-5 w-5 mr-2" />
-                        Tambah Produk Baru
+                        Buat Produk Baru
                     </button>
                 </Link>
             </div>

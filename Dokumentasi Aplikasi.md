@@ -1,6 +1,7 @@
 # Dokumentasi Aplikasi Finako
 
 **Nama Aplikasi**: Finako App
+**VISI Finako** Aplikasi Super App,Menggabungkan Majoo/Moka Pos,Accurate/Zahir dan Mekari Talenta untuk UMKM Indonesia dengan Harga yang murah
 **Brand Color**: Green Teal
 **Bahasa Pemrograman**: TypeScript
 **Framework Frontend**: Next.js (dengan App Router)

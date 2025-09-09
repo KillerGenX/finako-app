@@ -1,8 +1,9 @@
+
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
-import { NewProductForm } from './NewProductForm';
+import { NewTemplateForm } from './NewTemplateForm';
 
-export default async function NewProductPage() {
+export default async function NewProductTemplatePage() {
     const cookieStore = await cookies();
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,7 +19,7 @@ export default async function NewProductPage() {
     
     let categories = [];
     let brands = [];
-    let taxes = [];
+
     if (user) {
         const { data: member } = await supabase.from('organization_members').select('organization_id').eq('user_id', user.id).single();
         if (member) {
@@ -26,15 +27,13 @@ export default async function NewProductPage() {
             
             const categoriesPromise = supabase.from('product_categories').select('id, name').eq('organization_id', orgId).order('name');
             const brandsPromise = supabase.from('brands').select('id, name').eq('organization_id', orgId).order('name');
-            const taxesPromise = supabase.from('tax_rates').select('id, name, rate').eq('organization_id', orgId).order('name');
             
-            const [categoriesResult, brandsResult, taxesResult] = await Promise.all([categoriesPromise, brandsPromise, taxesPromise]);
+            const [categoriesResult, brandsResult] = await Promise.all([categoriesPromise, brandsPromise]);
             
             categories = categoriesResult.data || [];
             brands = brandsResult.data || [];
-            taxes = taxesResult.data || [];
         }
     }
 
-    return <NewProductForm categories={categories} brands={brands} taxes={taxes} />;
+    return <NewTemplateForm categories={categories} brands={brands} />;
 }
