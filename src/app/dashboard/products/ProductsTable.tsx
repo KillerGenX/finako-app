@@ -15,6 +15,8 @@ function DeleteButton() {
     );
 }
 
+// NOTE: The links inside this menu need to be re-evaluated.
+// Edit should probably be removed in favor of editing from the detail page.
 const ActionsMenu = ({ product }: { product: any }) => {
     const [isOpen, setIsOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -44,9 +46,10 @@ const ActionsMenu = ({ product }: { product: any }) => {
                         <Link href={`/dashboard/products/${product.id}/inventory`} className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                             <Warehouse className="mr-2 h-4 w-4" /> Kelola Stok
                         </Link>
-                        <Link href={`/dashboard/products/${product.id}/edit`} className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        {/* This edit link is now ambiguous. Should it edit the variant or the template? Removed for now. */}
+                        {/* <Link href={`/dashboard/products/${product.id}/edit`} className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                             <Edit className="mr-2 h-4 w-4" /> Edit Produk
-                        </Link>
+                        </Link> */}
                         <div className="border-t my-1 dark:border-gray-700"></div>
                         <form action={deleteProduct}>
                             <input type="hidden" name="variant_id" value={product.id} />
@@ -94,16 +97,20 @@ export function ProductsTable({ products }: { products: any[] }) {
                     {products.map((product, index) => (
                         <tr key={product.id}>
                             <td className="px-6 py-4">
-                                <img 
-                                    src={product.image_url || '/Finako JPG.jpg'} 
-                                    alt={product.name} 
-                                    className="h-10 w-10 rounded-md object-cover"
-                                    onError={(e) => { e.currentTarget.src = '/Finako JPG.jpg'; }} // Fallback for broken links
-                                />
+                               <Link href={`/dashboard/products/templates/${product.product_id}`}>
+                                    <img 
+                                        src={product.image_url || '/Finako JPG.jpg'} 
+                                        alt={product.name} 
+                                        className="h-10 w-10 rounded-md object-cover hover:ring-2 hover:ring-teal-500"
+                                        onError={(e) => { e.currentTarget.src = '/Finako JPG.jpg'; }}
+                                    />
+                                </Link>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm font-medium text-gray-900 dark:text-white">{product.name}</div>
-                                <div className="text-sm text-gray-500 dark:text-gray-400">{product.sku || 'No SKU'}</div>
+                                <Link href={`/dashboard/products/templates/${product.product_id}`} className="hover:underline">
+                                    <div className="text-sm font-medium text-gray-900 dark:text-white">{product.name}</div>
+                                    <div className="text-sm text-gray-500 dark:text-gray-400">{product.sku || 'No SKU'}</div>
+                                 </Link>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                 {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(product.selling_price)}

@@ -9,12 +9,13 @@ import { z } from 'zod';
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
-// Schema for the new product template form
+// Schema for the new product template form, now including taxes
 const ProductTemplateSchema = z.object({
     name: z.string().min(3, { message: "Nama produk harus diisi." }),
     description: z.string().optional(),
     category_id: z.string().uuid().nullable().optional(),
     brand_id: z.string().uuid().nullable().optional(),
+    tax_rate_ids: z.array(z.string().uuid()).optional(),
 });
 
 // Schema for adding or updating a variant
@@ -26,19 +27,6 @@ const VariantSchema = z.object({
     cost_price: z.coerce.number().min(0).optional(),
     sku: z.string().optional(),
     track_stock: z.boolean(),
-});
-
-
-const BaseProductSchema = z.object({
-    name: z.string().min(3, { message: "Nama produk harus diisi." }),
-    selling_price: z.coerce.number().min(0),
-    cost_price: z.coerce.number().min(0).optional(),
-    sku: z.string().optional(),
-    description: z.string().optional(),
-    track_stock: z.boolean(), // Expect a true boolean
-    category_id: z.string().nullable().optional(),
-    brand_id: z.string().nullable().optional(),
-    tax_rate_ids: z.array(z.string().uuid()).optional(),
 });
 
 const ImageSchema = z.object({
@@ -76,6 +64,19 @@ async function handleImageUpload(supabase: any, organization_id: string, imageFi
     return supabase.storage.from('product_images').getPublicUrl(fileName).data.publicUrl;
 }
 
+async function updateProductTaxes(supabase: any, productId: string, taxRateIds: string[] | undefined) {
+    // First, remove all existing tax associations for this product
+    await supabase.from('product_tax_rates').delete().eq('product_id', productId);
+    
+    // Then, if there are new tax IDs, insert them
+    if (taxRateIds && taxRateIds.length > 0) {
+        const newTaxLinks = taxRateIds.map(taxId => ({ product_id: productId, tax_rate_id: taxId }));
+        const { error } = await supabase.from('product_tax_rates').insert(newTaxLinks);
+        if (error) throw new Error(`Gagal menyimpan pajak produk: ${error.message}`);
+    }
+}
+
+
 // ============== NEW ACTION FOR PRODUCT TEMPLATE ==============
 export async function createProductTemplate(prevState: FormState, formData: FormData): Promise<FormState> {
     let templateId = '';
@@ -84,15 +85,16 @@ export async function createProductTemplate(prevState: FormState, formData: Form
         
         const rawData = Object.fromEntries(formData.entries());
         const imageFile = rawData.image_url as File;
+        const taxIds = formData.getAll('tax_rate_ids') as string[];
 
         const validationSchema = ProductTemplateSchema.extend({ image_url: ImageSchema.shape.image_url });
-        const validatedFields = validationSchema.safeParse({ ...rawData, image_url: imageFile });
+        const validatedFields = validationSchema.safeParse({ ...rawData, image_url: imageFile, tax_rate_ids: taxIds });
 
         if (!validatedFields.success) {
             return { message: "Validasi gagal.", errors: validatedFields.error.flatten().fieldErrors };
         }
         
-        const { name, description, category_id, brand_id } = validatedFields.data;
+        const { name, description, category_id, brand_id, tax_rate_ids } = validatedFields.data;
         
         const newImageUrl = await handleImageUpload(supabase, organization_id, imageFile);
 
@@ -109,6 +111,9 @@ export async function createProductTemplate(prevState: FormState, formData: Form
         if (productError) throw new Error(`Error saat menyimpan template produk: ${productError.message}`);
         
         templateId = product.id;
+        
+        // Save the tax relations
+        await updateProductTaxes(supabase, templateId, tax_rate_ids);
 
     } catch (e: any) {
         return { message: e.message, errors: {} };
@@ -136,7 +141,6 @@ export async function addOrUpdateVariant(prevState: FormState, formData: FormDat
 
         let { variant_id, name, selling_price, cost_price, sku, track_stock } = validatedFields.data;
         
-        // Generate SKU if empty
         if (!sku || sku.trim() === '') {
             const { data: product } = await supabase.from('products').select('name').eq('id', productId).single();
             sku = generateSku(`${product?.name}-${name}`);
@@ -154,11 +158,9 @@ export async function addOrUpdateVariant(prevState: FormState, formData: FormDat
         };
 
         if (variant_id) {
-            // Update existing variant
             const { error } = await supabase.from('product_variants').update(variantData).eq('id', variant_id);
             if (error) throw new Error(`Gagal memperbarui varian: ${error.message}`);
         } else {
-            // Insert new variant
             const { error } = await supabase.from('product_variants').insert(variantData);
             if (error) {
                 if (error.code === '23505') return { message: `Error: SKU '${sku}' sudah ada.`, errors: { sku: ["SKU ini sudah digunakan."] } };
@@ -175,17 +177,8 @@ export async function addOrUpdateVariant(prevState: FormState, formData: FormDat
 }
 
 
-// ============== LEGACY/REFACTORED ACTIONS ==============
+// ============== LEGACY & TO BE REFACTORED ACTIONS ==============
 
-// This function can now be removed as its logic is split between 
-// createProductTemplate and addOrUpdateVariant
-// For safety, we'll keep it for now but it's deprecated.
-export async function createProduct(prevState: FormState, formData: FormData): Promise<FormState> {
-    return { message: "This action is deprecated." };
-}
-
-// updateProduct also needs to be refactored. 
-// It currently updates both product and variant, which should be separate actions.
 export async function updateProduct(prevState: FormState, formData: FormData): Promise<FormState> {
      return { message: "This action is deprecated and needs refactoring." };
 }
@@ -198,13 +191,11 @@ export async function deleteProduct(formData: FormData): Promise<{ message: stri
         const { data: variant, error: fetchError } = await supabase.from('product_variants').select('product_id, product:products(image_url)').eq('id', variantId).eq('organization_id', organization_id).single();
         if (fetchError || !variant) throw new Error("Produk tidak ditemukan.");
         
-        productId = variant.product_id; // Get product ID for revalidation
+        productId = variant.product_id;
 
-        // Check if this is the last variant for the product
         const { count } = await supabase.from('product_variants').select('*', { count: 'exact' }).eq('product_id', productId);
 
         if (count === 1) {
-            // If it's the last variant, delete the whole product
             const { error: deleteError } = await supabase.from('products').delete().eq('id', productId);
             if (deleteError) throw new Error(`Gagal menghapus produk: ${deleteError.message}`);
 
@@ -213,7 +204,6 @@ export async function deleteProduct(formData: FormData): Promise<{ message: stri
                 if(oldImageName) await supabase.storage.from('product_images').remove([`${organization_id}/${oldImageName}`]);
             }
         } else {
-            // Otherwise, just delete the variant
             const { error: deleteError } = await supabase.from('product_variants').delete().eq('id', variantId);
             if (deleteError) throw new Error(`Gagal menghapus varian: ${deleteError.message}`);
         }

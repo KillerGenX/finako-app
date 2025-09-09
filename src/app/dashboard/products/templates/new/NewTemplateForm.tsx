@@ -2,12 +2,13 @@
 
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { createProductTemplate, FormState } from '../../actions'; // We will create this action
+import { createProductTemplate, FormState } from '../../actions'; 
 import Link from 'next/link';
 import { ArrowLeft, Loader2, Info, ExternalLink } from 'lucide-react';
 import { ImageUpload } from '../../ImageUpload';
 
 type SelectOption = { id: string; name: string; };
+type TaxOption = { id: string; name: string; rate: number; };
 
 const initialState: FormState = { message: '' };
 
@@ -21,7 +22,7 @@ const FormInput = ({ id, label, type, required, error }: { id: string, label: st
 const FormTextarea = ({ id, label, error }: { id: string, label: string, error?: string[] }) => ( <div> <label htmlFor={id} className="block text-sm font-medium">{label}</label> <textarea id={id} name={id} rows={3} className={`mt-1 block w-full p-2 border rounded bg-transparent ${error ? 'border-red-500' : 'border-gray-300'}`}></textarea> {error && <p className="mt-1 text-xs text-red-500">{error.join(', ')}</p>} </div> );
 const FormSelect = ({ id, label, options, error, manageLink }: { id: string, label: string, options: SelectOption[], error?: string[], manageLink: { href: string, text: string } }) => ( <div> <div className="flex justify-between items-center"> <label htmlFor={id} className="block text-sm font-medium">{label}</label> <Link href={manageLink.href} target="_blank" className="text-xs text-teal-600 hover:underline flex items-center gap-1"> {manageLink.text} <ExternalLink size={12} /> </Link> </div> <select id={id} name={id} className={`mt-1 block w-full p-2 border rounded bg-transparent ${error ? 'border-red-500' : 'border-gray-300'}`}> <option value="null">-- Opsional --</option> {options.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)} </select> {error && <p className="mt-1 text-xs text-red-500">{error.join(', ')}</p>} </div> );
 
-export function NewTemplateForm({ categories, brands }: { categories: SelectOption[], brands: SelectOption[] }) {
+export function NewTemplateForm({ categories, brands, taxes }: { categories: SelectOption[], brands: SelectOption[], taxes: TaxOption[] }) {
     const [state, formAction] = useActionState(createProductTemplate, initialState);
 
     return (
@@ -45,6 +46,23 @@ export function NewTemplateForm({ categories, brands }: { categories: SelectOpti
                                 </div>
                                 <FormTextarea id="description" label="Deskripsi" error={state.errors?.description} />
                             </div>
+                        </div>
+                         <div className="p-6 bg-white dark:bg-gray-900/50 rounded-lg border dark:border-gray-800">
+                            <h2 className="text-lg font-semibold mb-4">Pajak</h2>
+                            <div className="flex justify-between items-center">
+                                <label className="block text-sm font-medium">Pajak yang berlaku untuk produk ini</label>
+                                <Link href="/dashboard/taxes" target="_blank" className="text-xs text-teal-600 hover:underline flex items-center gap-1">Kelola Pajak <ExternalLink size={12} /></Link>
+                            </div>
+                            <div className="mt-2 space-y-2">
+                                {taxes.map(tax => (
+                                    <label key={tax.id} className="flex items-center gap-2 font-normal">
+                                        <input type="checkbox" name="tax_rate_ids" value={tax.id} /> 
+                                        {tax.name} ({tax.rate}%)
+                                    </label>
+                                ))}
+                                {taxes.length === 0 && <p className="text-xs text-gray-500">Belum ada tarif pajak aktif. Tambahkan terlebih dahulu.</p>}
+                            </div>
+                             {state.errors?.tax_rate_ids && <p className="mt-1 text-xs text-red-500">{state.errors.tax_rate_ids.join(', ')}</p>}
                         </div>
                     </div>
                     <div className="lg:col-span-1 space-y-6">
