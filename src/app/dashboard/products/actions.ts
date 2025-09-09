@@ -81,6 +81,11 @@ export async function createProductTemplate(prevState: FormState, formData: Form
     try {
         const { supabase, organization_id } = await getSupabaseAndOrgId();
         const rawData = Object.fromEntries(formData.entries());
+
+        // FIX: Sanitize optional fields before validation
+        if (rawData.category_id === 'null') rawData.category_id = null;
+        if (rawData.brand_id === 'null') rawData.brand_id = null;
+        
         const imageFile = rawData.image_url as File;
         const taxIds = formData.getAll('tax_rate_ids') as string[];
         const validationSchema = ProductTemplateSchema.extend({ image_url: ImageSchema.shape.image_url });
@@ -92,8 +97,8 @@ export async function createProductTemplate(prevState: FormState, formData: Form
 
         const { data: product, error: productError } = await supabase.from('products').insert({ 
             organization_id, name, description, product_type: 'VARIANT',
-            category_id: category_id === 'null' ? null : category_id,
-            brand_id: brand_id === 'null' ? null : brand_id,
+            category_id, // Use the sanitized value directly
+            brand_id,      // Use the sanitized value directly
             image_url: newImageUrl,
         }).select('id').single();
         if (productError) throw new Error(`Error saat menyimpan template produk: ${productError.message}`);
@@ -112,6 +117,11 @@ export async function updateProductTemplate(prevState: FormState, formData: Form
     try {
         const { supabase, organization_id } = await getSupabaseAndOrgId();
         const rawData = Object.fromEntries(formData.entries());
+
+        // FIX: Sanitize optional fields before validation
+        if (rawData.category_id === 'null') rawData.category_id = null;
+        if (rawData.brand_id === 'null') rawData.brand_id = null;
+
         const imageFile = rawData.image_url as File;
         const taxIds = formData.getAll('tax_rate_ids') as string[];
         const validationSchema = ProductTemplateSchema.extend({ image_url: ImageSchema.shape.image_url });
@@ -124,8 +134,8 @@ export async function updateProductTemplate(prevState: FormState, formData: Form
 
         const { error: productError } = await supabase.from('products').update({
             name, description,
-            category_id: category_id === 'null' ? null : category_id,
-            brand_id: brand_id === 'null' ? null : brand_id,
+            category_id, // Use the sanitized value directly
+            brand_id,      // Use the sanitized value directly
             image_url: newImageUrl === null ? existingProduct?.image_url : newImageUrl,
         }).eq('id', productId);
         if (productError) throw new Error(`Error saat memperbarui produk: ${productError.message}`);
