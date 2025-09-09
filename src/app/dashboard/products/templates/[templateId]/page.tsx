@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { ProductDetailClient } from './ProductDetailClient';
 
 export default async function ProductDetailPage({ params }: { params: { templateId: string } }) {
-    const { templateId } = params;
+    const { templateId } = await params; // Await params
 
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -27,14 +27,18 @@ export default async function ProductDetailPage({ params }: { params: { template
     // Fetch all data in parallel
     const productPromise = supabase
         .from('products')
-        .select('*, product_tax_rates(tax_rate_id)') // Also fetch associated taxes
+        .select('*, product_tax_rates(tax_rate_id)')
         .eq('id', templateId)
         .eq('organization_id', orgId)
         .single();
     
+    // Updated query to fetch variants WITH their stock levels
     const variantsPromise = supabase
         .from('product_variants')
-        .select('*')
+        .select(`
+            *,
+            inventory_stock_levels(quantity_on_hand)
+        `)
         .eq('product_id', templateId)
         .order('created_at', { ascending: true });
 
@@ -54,10 +58,18 @@ export default async function ProductDetailPage({ params }: { params: { template
         notFound();
     }
     
+    // Process variants to calculate total_stock
+    const variantsWithStock = (variantsResult.data || []).map(variant => {
+        const total_stock = variant.inventory_stock_levels.reduce((sum, level) => sum + level.quantity_on_hand, 0);
+        // Remove the detailed stock levels array to keep the client component clean
+        const { inventory_stock_levels, ...rest } = variant;
+        return { ...rest, total_stock };
+    });
+
     return (
         <ProductDetailClient 
             product={productResult.data} 
-            initialVariants={variantsResult.data || []}
+            initialVariants={variantsWithStock} // Pass the processed data
             categories={categoriesResult.data || []}
             brands={brandsResult.data || []}
             taxes={taxesResult.data || []}

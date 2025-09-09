@@ -15,8 +15,6 @@ function DeleteButton() {
     );
 }
 
-// NOTE: The links inside this menu need to be re-evaluated.
-// Edit should probably be removed in favor of editing from the detail page.
 const ActionsMenu = ({ product }: { product: any }) => {
     const [isOpen, setIsOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);

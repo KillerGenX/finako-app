@@ -12,7 +12,7 @@ const formatPrice = (price: number) => {
 };
 
 export default async function PaymentPage({ params }: { params: { invoice_id: string } }) {
-    const invoiceId = params.invoice_id;
+    const { invoice_id: invoiceId } = await params; // Await params
     const cookieStore = await cookies();
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
