@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { MoreHorizontal, Edit, Trash2, Loader2, PlusCircle, Warehouse } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
-import { deleteProduct } from './actions';
+import { deleteVariant } from './actions';
 import { useFormStatus } from 'react-dom';
 
 function DeleteButton() {
@@ -43,15 +43,11 @@ const ActionsMenu = ({ product }: { product: any }) => {
             {isOpen && (
                 <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 z-10">
                     <div className="py-1">
-                        <Link href={`/dashboard/products/${product.id}/inventory`} className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <Link href={`/dashboard/inventory/${product.id}`} className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                             <Warehouse className="mr-2 h-4 w-4" /> Kelola Stok
                         </Link>
-                        {/* This edit link is now ambiguous. Should it edit the variant or the template? Removed for now. */}
-                        {/* <Link href={`/dashboard/products/${product.id}/edit`} className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
-                            <Edit className="mr-2 h-4 w-4" /> Edit Produk
-                        </Link> */}
                         <div className="border-t my-1 dark:border-gray-700"></div>
-                        <form action={deleteProduct}>
+                        <form action={deleteVariant}>
                             <input type="hidden" name="variant_id" value={product.id} />
                             <DeleteButton />
                         </form>

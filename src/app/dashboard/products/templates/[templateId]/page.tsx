@@ -24,29 +24,43 @@ export default async function ProductDetailPage({ params }: { params: { template
     if (!member) notFound();
     const orgId = member.organization_id;
 
-    // Fetch the main product template
-    const { data: product, error: productError } = await supabase
+    // Fetch all data in parallel
+    const productPromise = supabase
         .from('products')
-        .select('*')
+        .select('*, product_tax_rates(tax_rate_id)') // Also fetch associated taxes
         .eq('id', templateId)
         .eq('organization_id', orgId)
         .single();
     
-    if (productError || !product) {
-        notFound();
-    }
-
-    // Fetch all associated variants
-    const { data: variants, error: variantsError } = await supabase
+    const variantsPromise = supabase
         .from('product_variants')
         .select('*')
         .eq('product_id', templateId)
         .order('created_at', { ascending: true });
 
-    if (variantsError) {
-        // Handle error, maybe show a message
-        console.error("Error fetching variants:", variantsError);
+    const categoriesPromise = supabase.from('product_categories').select('id, name').eq('organization_id', orgId).order('name');
+    const brandsPromise = supabase.from('brands').select('id, name').eq('organization_id', orgId).order('name');
+    const taxesPromise = supabase.from('tax_rates').select('id, name, rate').eq('organization_id', orgId).eq('is_active', true).order('name');
+
+    const [productResult, variantsResult, categoriesResult, brandsResult, taxesResult] = await Promise.all([
+        productPromise,
+        variantsPromise,
+        categoriesPromise,
+        brandsPromise,
+        taxesPromise
+    ]);
+
+    if (productResult.error || !productResult.data) {
+        notFound();
     }
     
-    return <ProductDetailClient product={product} initialVariants={variants || []} />;
+    return (
+        <ProductDetailClient 
+            product={productResult.data} 
+            initialVariants={variantsResult.data || []}
+            categories={categoriesResult.data || []}
+            brands={brandsResult.data || []}
+            taxes={taxesResult.data || []}
+        />
+    );
 }
