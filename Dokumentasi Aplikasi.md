@@ -29,53 +29,53 @@ Fase awal pengembangan mencakup penyiapan proyek Next.js, implementasi modul ote
 ---
 
 #### **Fase 3: Produk dengan Varian - Selesai**
-Tahap ini merombak modul produk untuk mendukung produk yang memiliki beberapa variasi (misalnya, Kaos dengan varian ukuran S, M, L). Fitur ini telah diselesaikan dan dipoles untuk memastikan kelengkapan fungsional.
-
+Tahap ini merombak modul produk untuk mendukung produk yang memiliki beberapa variasi.
 **Pencapaian Utama:**
-**1. Struktur Data yang Fleksibel:**
-   - Tabel `products` berfungsi sebagai *template* yang menyimpan informasi umum.
-   - Tabel `product_variants` menyimpan unit yang dapat dijual (SKU), masing-masing dengan harga, stok, dan atribut uniknya.
-
-**2. Peningkatan Pengalaman Pengguna (UX):**
-   - **Pencarian & Filter:** Halaman daftar produk utama kini dilengkapi dengan fungsionalitas pencarian (berdasarkan nama/SKU) dan filter per kategori di sisi klien untuk performa yang instan.
-   - **Navigasi Intuitif:** Daftar produk utama (`/dashboard/products`) kini menampilkan semua varian yang dapat dijual. Nama dan gambar setiap varian berfungsi sebagai tautan langsung ke halaman detail produk induknya.
-   - **Tampilan Kontekstual:** Nama produk di tabel utama kini ditampilkan secara cerdas. Logika ini telah dipindahkan ke fungsi RPC `get_products_with_stock` di database untuk memastikan konsistensi:
-     - Untuk produk `SINGLE`, hanya nama produk yang ditampilkan (misal: "Kopi Susu").
-     - Untuk produk `VARIANT`, nama ditampilkan dalam format "Produk - Varian" (misal: "Kaos Polos - Merah").
-
-**3. Manajemen Inventaris yang Solid:**
-   - **Pemulihan & Restrukturisasi Modul:** Modul manajemen inventaris telah dibangun kembali di lokasi yang lebih logis (`/dashboard/inventory/[variantId]`) dan berfungsi penuh.
-   - **Konsistensi Data:** Tampilan jumlah stok kini konsisten di semua halaman.
+- **Struktur Data Fleksibel:** Penggunaan tabel `products` sebagai template dan `product_variants` untuk SKU yang dapat dijual.
+- **Peningkatan UX:** Fungsionalitas pencarian, filter, dan navigasi yang intuitif di halaman daftar produk.
+- **Tampilan Kontekstual:** Nama produk ditampilkan secara cerdas menggunakan fungsi RPC `get_products_with_stock` untuk membedakan format nama produk `SINGLE` dan `VARIANT`.
 
 ---
 
 #### **Fase 4: Produk Tunggal - Selesai**
-Tahap ini memperkenalkan dukungan untuk produk tipe `SINGLE` (produk tunggal tanpa varian), menyederhanakan proses pembuatan produk bagi pengguna.
+Tahap ini memperkenalkan dukungan untuk produk tipe `SINGLE`, menyederhanakan proses pembuatan produk dalam satu langkah melalui UI dan *server action* yang dinamis.
+
+---
+
+#### **Fase 5: Produk Komposit (Manajemen Resep) - Selesai**
+Tahap ini mengimplementasikan fungsionalitas inti untuk produk `COMPOSITE`, yang memungkinkan pengguna membuat produk yang terdiri dari produk lain (resep/BOM).
 
 **Pencapaian Utama:**
-**1. Alur Pembuatan Produk yang Dinamis:**
-   - **Pemilihan Tipe Produk:** Formulir "Buat Produk Baru" kini dilengkapi dengan pilihan tipe produk (`SINGLE` dan `VARIANT` aktif; `COMPOSITE` dan `SERVICE` dinonaktifkan untuk pengembangan di masa depan).
-   - **UI Kondisional:** Antarmuka formulir berubah secara dinamis. Untuk produk `SINGLE`, kolom harga, SKU, dan lacak stok ditampilkan langsung di langkah pertama, memungkinkan pembuatan produk dalam satu langkah.
-   - **Logika Backend Cerdas:** *Server action* `createProductTemplate` telah dimodifikasi untuk menangani kedua tipe produk, membuat *template* dan *variant* sekaligus untuk produk `SINGLE`, dan mengarahkan pengguna ke alur yang sesuai.
+1.  **Alur Pembuatan Produk Komposit:** Pengguna kini dapat membuat "wadah" untuk produk komposit dari halaman "Buat Produk Baru".
+2.  **Manajemen Komponen Penuh:** Halaman detail produk komposit kini menjadi manajer resep yang fungsional, memungkinkan pengguna untuk:
+    - **Mencari & Menambah Komponen:** Antarmuka pencarian *real-time* untuk mencari dan menambahkan produk `SINGLE` atau `VARIANT` ke dalam resep.
+    - **Mengedit Kuantitas:** Fungsionalitas "auto-save" yang mulus saat pengguna mengubah kuantitas komponen, memberikan UX yang modern.
+    - **Menghapus Komponen:** Kemampuan untuk menghapus komponen dari resep.
+3.  **Arsitektur Data yang Efisien:** Transisi dari beberapa *query* di sisi klien ke **satu panggilan fungsi RPC (`get_product_details`)** yang komprehensif di sisi server. Ini secara signifikan meningkatkan kinerja dan menyederhanakan kode pengambilan data.
+4.  **Debugging & Peningkatan Stabilitas:** Mengidentifikasi dan memperbaiki serangkaian *bug* kritis yang saling terkait:
+    - Memperbaiki inisialisasi Supabase SSR Client di semua *server action* dan komponen server untuk mengatasi masalah otentikasi.
+    - Memperbaiki *bug* constraint `NOT NULL` pada `unit_of_measure_id` yang menyebabkan kegagalan penambahan komponen.
+    - Menyinkronkan struktur data antara RPC dan komponen *front-end* untuk mengatasi *error* render.
 
 ---
 
 ### **Peta Jalan & Panduan untuk AI (Sesi Berikutnya)**
 
-Berdasarkan keputusan strategis, pengembangan akan dilanjutkan sesuai roadmap awal untuk menyelesaikan semua tipe produk sebelum memperkaya modul lainnya.
+Pengembangan modul produk hampir selesai. Fokus selanjutnya adalah menyelesaikan dua fitur kunci terakhir dan melakukan perbaikan UX yang penting. Logika transaksi akan diintegrasikan nanti saat membangun modul POS.
 
-**1. Langkah Selanjutnya: Implementasi Produk `COMPOSITE`**
-   - **Tujuan:** Memungkinkan pengguna untuk membuat produk yang terdiri dari beberapa produk lain (resep atau *Bill of Materials*). Contoh: "Paket Hemat A" terdiri dari 1 Roti dan 1 Kopi Susu.
+**1. Prioritas #1: Harga Pokok (HPP) Otomatis untuk Produk Komposit**
+   - **Tujuan:** Memberikan data keuntungan yang akurat kepada pengguna dengan menghitung HPP produk komposit secara otomatis.
    - **Tugas:**
-     - Aktifkan pilihan `COMPOSITE` di formulir pembuatan produk.
-     - Rancang dan implementasikan antarmuka (UI) di halaman detail produk untuk menambahkan/mengelola komponen dari produk komposit.
-     - Buat *server action* untuk menyimpan dan mengelola hubungan antara produk induk komposit dan komponen-komponennya di tabel `product_composites`.
-     - Sesuaikan logika manajemen inventaris: saat produk komposit terjual, stok komponennya harus berkurang secara otomatis.
+     - Buat atau modifikasi fungsi RPC di database untuk menghitung total HPP dari sebuah produk komposit dengan menjumlahkan `(kuantitas * HPP)` dari setiap komponennya.
+     - Tampilkan HPP yang dihitung secara dinamis ini di halaman detail produk komposit sebagai *field* yang tidak bisa diedit.
+     - Tampilkan juga perhitungan laba kotor (`Harga Jual - HPP Otomatis`) untuk memberikan wawasan bisnis langsung kepada pengguna.
 
-**2. Tugas Penting Berikutnya: Halaman Detail Produk yang Dinamis**
-   - **Masalah Saat Ini:** Halaman detail produk (`/dashboard/products/templates/[templateId]`) saat ini memiliki desain yang kaku dan hanya cocok untuk produk `VARIANT`. Saat melihat produk `SINGLE`, halaman tersebut menampilkan tombol "Tambah Varian" yang tidak relevan dan membingungkan.
-   - **Solusi yang Diinginkan:**
-     - Modifikasi halaman detail produk agar dapat beradaptasi berdasarkan `product_type` dari produk yang sedang dilihat.
-     - **Jika `product_type` adalah `SINGLE`:** Halaman harus menampilkan detail dari satu-satunya varian yang ada dalam mode "baca" atau "edit" form, tanpa ada daftar varian atau tombol "Tambah Varian".
-     - **Jika `product_type` adalah `VARIANT`:** Halaman harus mempertahankan fungsionalitasnya saat ini, yaitu menampilkan daftar varian dan tombol untuk menambah varian baru.
-   - **Prioritas:** Ini adalah perbaikan UX prioritas tinggi yang harus dikerjakan setelah fungsionalitas dasar `COMPOSITE` selesai.
+**2. Prioritas #2: Perbaikan UX - Halaman Detail Produk Dinamis**
+   - **Masalah Saat Ini:** Halaman detail produk (`/templates/[templateId]`) masih menampilkan antarmuka manajemen varian saat melihat produk tipe `SINGLE`, yang membingungkan.
+   - **Tugas:**
+     - Modifikasi komponen `ProductDetailClient` agar dapat merender tampilan yang berbeda untuk produk `SINGLE`.
+     - **Tampilan untuk `SINGLE`:** Halaman harus menampilkan detail dari satu-satunya varian yang ada dalam bentuk form yang bisa diedit (mirip modal `AddEditVariantModal` tetapi terintegrasi langsung di halaman), tanpa ada daftar varian atau tombol "Tambah Varian".
+     - **Tampilan untuk `VARIANT` & `COMPOSITE`:** Pertahankan fungsionalitas saat ini.
+
+**3. Tugas yang Ditunda (Hingga Pengerjaan Modul POS/Transaksi):**
+   - **Logika Pengurangan Stok:** Implementasi logika di mana penjualan satu produk komposit akan secara otomatis mengurangi stok dari setiap produk komponennya sesuai dengan resep.

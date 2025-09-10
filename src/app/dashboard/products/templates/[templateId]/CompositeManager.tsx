@@ -5,16 +5,23 @@ import { PlusCircle, Loader2, Search, Trash2 } from 'lucide-react';
 import { searchProductsForComponent, addComponentToComposite, updateComponentQuantity, removeComponentFromComposite } from '../../actions';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import type { Product } from './ProductDetailClient';
-import type { CompositeComponent } from './page';
+// FIX: The type is now imported from page.tsx where it's defined centrally
+import type { CompositeComponent as InitialCompositeComponent } from './page';
+
+// Re-exporting the type to be used by ProductDetailClient
+export type CompositeComponent = InitialCompositeComponent;
 
 type SearchResult = { id: string; name: string; sku: string | null; image_url: string | null; };
 
+// A new sub-component to handle the quantity updates
 function QuantityInput({ component, productId }: { component: CompositeComponent, productId: string }) {
     const [quantity, setQuantity] = useState(component.quantity);
-    const debouncedQuantity = useDebounce(quantity, 500);
+    const debouncedQuantity = useDebounce(quantity, 500); // Debounce changes by 500ms
     const [isPending, startTransition] = useTransition();
 
     useEffect(() => {
+        // Only trigger update if the debounced value is different from the initial value
+        // and is a valid number.
         if (debouncedQuantity !== component.quantity && debouncedQuantity > 0) {
             const formData = new FormData();
             formData.append('component_id', component.id);
@@ -28,9 +35,12 @@ function QuantityInput({ component, productId }: { component: CompositeComponent
     return (
         <div className="relative">
             <input 
-                type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))}
+                type="number"
+                value={quantity}
+                onChange={(e) => setQuantity(Number(e.target.value))}
                 className="w-24 p-1 border rounded bg-transparent text-center"
-                min="0.01" step="any"
+                min="0.01"
+                step="any"
             />
             {isPending && <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />}
         </div>
