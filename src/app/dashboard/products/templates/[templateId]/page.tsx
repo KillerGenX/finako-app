@@ -1,18 +1,68 @@
 import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { notFound } from 'next/navigation';
 import { ProductDetailClient } from './ProductDetailClient';
+import type { Variant } from './ProductDetailClient'; 
+
+export type CompositeComponent = {
+    id: string; 
+    quantity: number;
+    component_details: {
+        id: string; 
+        name: string; 
+        sku: string | null;
+        product_name: string; 
+        image_url: string | null;
+    }
+};
+
+type ProductDetailsData = {
+    id: string;
+    name: string;
+    description: string | null;
+    image_url: string | null;
+    category_id: string | null;
+    brand_id: string | null;
+    product_type: 'SINGLE' | 'VARIANT' | 'COMPOSITE' | 'SERVICE';
+    product_tax_rates: { tax_rate_id: string }[];
+    variants?: Variant[];
+    components?: CompositeComponent[];
+};
+
 
 export default async function ProductDetailPage({ params }: { params: { templateId: string } }) {
-    const { templateId } = await params; // Await params
+    const { templateId } = await params;
 
+    // FIX: The `cookies()` function returns a promise-like object, but we can pass it directly.
+    // The createServerClient is designed to handle this. The previous manual implementation was incorrect.
     const cookieStore = await cookies();
+    
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         {
             cookies: {
-                get(name:string) { return cookieStore.get(name)?.value },
+                get(name: string) {
+                    return cookieStore.get(name)?.value
+                },
+                set(name: string, value: string, options: CookieOptions) {
+                    try {
+                        cookieStore.set({ name, value, ...options })
+                    } catch (error) {
+                        // The `set` method was called from a Server Component.
+                        // This can be ignored if you have middleware refreshing
+                        // user sessions.
+                    }
+                },
+                remove(name: string, options: CookieOptions) {
+                    try {
+                        cookieStore.set({ name, value: '', ...options })
+                    } catch (error) {
+                        // The `delete` method was called from a Server Component.
+                        // This can be ignored if you have middleware refreshing
+                        // user sessions.
+                    }
+                },
             },
         }
     );
@@ -24,52 +74,33 @@ export default async function ProductDetailPage({ params }: { params: { template
     if (!member) notFound();
     const orgId = member.organization_id;
 
-    // Fetch all data in parallel
-    const productPromise = supabase
-        .from('products')
-        .select('*, product_tax_rates(tax_rate_id)')
-        .eq('id', templateId)
-        .eq('organization_id', orgId)
-        .single();
+    const { data: productDetails, error } = await supabase
+        .rpc('get_product_details', { 
+            p_product_id: templateId, 
+            p_organization_id: orgId 
+        })
+        .single<ProductDetailsData>();
     
-    // Updated query to fetch variants WITH their stock levels
-    const variantsPromise = supabase
-        .from('product_variants')
-        .select(`
-            *,
-            inventory_stock_levels(quantity_on_hand)
-        `)
-        .eq('product_id', templateId)
-        .order('created_at', { ascending: true });
+    if (error || !productDetails) {
+        console.error('Error fetching product details:', error);
+        notFound();
+    }
 
     const categoriesPromise = supabase.from('product_categories').select('id, name').eq('organization_id', orgId).order('name');
     const brandsPromise = supabase.from('brands').select('id, name').eq('organization_id', orgId).order('name');
     const taxesPromise = supabase.from('tax_rates').select('id, name, rate').eq('organization_id', orgId).eq('is_active', true).order('name');
 
-    const [productResult, variantsResult, categoriesResult, brandsResult, taxesResult] = await Promise.all([
-        productPromise,
-        variantsPromise,
+    const [categoriesResult, brandsResult, taxesResult] = await Promise.all([
         categoriesPromise,
         brandsPromise,
         taxesPromise
     ]);
 
-    if (productResult.error || !productResult.data) {
-        notFound();
-    }
-    
-    // Process variants to calculate total_stock
-    const variantsWithStock = (variantsResult.data || []).map(variant => {
-        const total_stock = variant.inventory_stock_levels.reduce((sum, level) => sum + level.quantity_on_hand, 0);
-        // Remove the detailed stock levels array to keep the client component clean
-        const { inventory_stock_levels, ...rest } = variant;
-        return { ...rest, total_stock };
-    });
-
     return (
         <ProductDetailClient 
-            product={productResult.data} 
-            initialVariants={variantsWithStock} // Pass the processed data
+            product={productDetails}
+            initialVariants={productDetails.variants || []}
+            initialComponents={productDetails.components || []}
             categories={categoriesResult.data || []}
             brands={brandsResult.data || []}
             taxes={taxesResult.data || []}

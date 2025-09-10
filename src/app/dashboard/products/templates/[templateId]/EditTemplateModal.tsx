@@ -15,7 +15,8 @@ type ProductData = {
     category_id: string | null;
     brand_id: string | null;
     image_url: string | null;
-    product_tax_rates: { tax_rate_id: string }[];
+    // This property might not exist if data comes from the new RPC
+    product_tax_rates?: { tax_rate_id: string }[];
 };
 type SelectOption = { id: string; name: string; };
 type TaxOption = { id: string; name: string; rate: number; };
@@ -47,7 +48,9 @@ const FormSelect = ({ id, label, options, defaultValue, error, manageLink }: { i
 
 export function EditTemplateModal({ isOpen, onClose, initialData, categories, brands, taxes }: ModalProps) {
     const [state, formAction] = useActionState(updateProductTemplate, initialState);
-    const existingTaxIds = initialData.product_tax_rates.map(t => t.tax_rate_id);
+    
+    // FIX: Use optional chaining (?.) and provide a fallback empty array
+    const existingTaxIds = initialData.product_tax_rates?.map(t => t.tax_rate_id) || [];
 
     useEffect(() => {
         if (state.message === 'success') {
