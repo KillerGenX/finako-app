@@ -51,7 +51,12 @@ const AddComponentSchema = z.object({
 const UpdateComponentQuantitySchema = z.object({
     component_id: z.string().uuid(),
     quantity: z.coerce.number().min(0.0001, { message: "Kuantitas harus lebih dari 0." }),
-    product_id: z.string().uuid(), // To revalidate the correct path
+    product_id: z.string().uuid(),
+});
+
+const RemoveComponentSchema = z.object({
+    component_id: z.string().uuid(),
+    product_id: z.string().uuid(),
 });
 
 
@@ -268,7 +273,6 @@ export async function updateComponentQuantity(formData: FormData) {
         const validatedFields = UpdateComponentQuantitySchema.safeParse(rawData);
 
         if (!validatedFields.success) {
-            // In a real app, you might want to return an error message
             console.error("Validation failed:", validatedFields.error.flatten().fieldErrors);
             return;
         }
@@ -279,10 +283,36 @@ export async function updateComponentQuantity(formData: FormData) {
             .from('product_composites')
             .update({ quantity })
             .eq('id', component_id)
-            .eq('organization_id', organization_id); // Ensure user can only update their own components
+            .eq('organization_id', organization_id); 
+
+        if (error) throw new Error(`Gagal memperbarui kuantitas: ${error.message}`);
+        revalidatePath(`/dashboard/products/templates/${product_id}`);
+    } catch(e: any) {
+        console.error(e.message);
+    }
+}
+
+export async function removeComponentFromComposite(formData: FormData) {
+    try {
+        const { supabase, organization_id } = await getSupabaseAndOrgId();
+        const rawData = Object.fromEntries(formData.entries());
+        const validatedFields = RemoveComponentSchema.safeParse(rawData);
+
+        if (!validatedFields.success) {
+            console.error("Validation failed:", validatedFields.error.flatten().fieldErrors);
+            return;
+        }
+
+        const { component_id, product_id } = validatedFields.data;
+
+        const { error } = await supabase
+            .from('product_composites')
+            .delete()
+            .eq('id', component_id)
+            .eq('organization_id', organization_id);
 
         if (error) {
-            throw new Error(`Gagal memperbarui kuantitas: ${error.message}`);
+            throw new Error(`Gagal menghapus komponen: ${error.message}`);
         }
 
         revalidatePath(`/dashboard/products/templates/${product_id}`);

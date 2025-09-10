@@ -2,46 +2,55 @@
 
 import { useState, useTransition, useCallback, useEffect } from 'react';
 import { PlusCircle, Loader2, Search, Trash2 } from 'lucide-react';
-import { searchProductsForComponent, addComponentToComposite, updateComponentQuantity } from '../../actions';
+import { searchProductsForComponent, addComponentToComposite, updateComponentQuantity, removeComponentFromComposite } from '../../actions';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import type { Product } from './ProductDetailClient';
 import type { CompositeComponent } from './page';
 
 type SearchResult = { id: string; name: string; sku: string | null; image_url: string | null; };
 
-// A new sub-component to handle the quantity updates
 function QuantityInput({ component, productId }: { component: CompositeComponent, productId: string }) {
     const [quantity, setQuantity] = useState(component.quantity);
-    const debouncedQuantity = useDebounce(quantity, 500); // Debounce changes by 500ms
+    const debouncedQuantity = useDebounce(quantity, 500);
     const [isPending, startTransition] = useTransition();
 
     useEffect(() => {
-        // Only trigger update if the debounced value is different from the initial value
-        // and is a valid number.
         if (debouncedQuantity !== component.quantity && debouncedQuantity > 0) {
             const formData = new FormData();
             formData.append('component_id', component.id);
             formData.append('quantity', String(debouncedQuantity));
             formData.append('product_id', productId);
             
-            startTransition(async () => {
-                await updateComponentQuantity(formData);
-            });
+            startTransition(() => { updateComponentQuantity(formData); });
         }
     }, [debouncedQuantity, component.id, component.quantity, productId]);
 
     return (
         <div className="relative">
             <input 
-                type="number"
-                value={quantity}
-                onChange={(e) => setQuantity(Number(e.target.value))}
+                type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))}
                 className="w-24 p-1 border rounded bg-transparent text-center"
-                min="0.01"
-                step="any"
+                min="0.01" step="any"
             />
             {isPending && <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />}
         </div>
+    );
+}
+
+function RemoveButton({ componentId, productId }: { componentId: string, productId: string }) {
+    const [isPending, startTransition] = useTransition();
+
+    const handleRemove = () => {
+        const formData = new FormData();
+        formData.append('component_id', componentId);
+        formData.append('product_id', productId);
+        startTransition(() => { removeComponentFromComposite(formData); });
+    };
+
+    return (
+        <button onClick={handleRemove} disabled={isPending} className="text-red-500 hover:text-red-700 p-1 disabled:opacity-50">
+            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 size={16} />}
+        </button>
     );
 }
 
@@ -131,7 +140,7 @@ export function CompositeManager({ product, initialComponents }: { product: Prod
                                         <td className="p-3 font-medium">{displayName}</td>
                                         <td className="p-3">{details.sku || '-'}</td>
                                         <td className="p-3 text-center"><QuantityInput component={c} productId={product.id} /></td>
-                                        <td className="p-3 text-right"><button className="text-red-500 hover:text-red-700 p-1"><Trash2 size={16} /></button></td>
+                                        <td className="p-3 text-right"><RemoveButton componentId={c.id} productId={product.id} /></td>
                                     </tr>
                                 );
                             })}
