@@ -48,6 +48,13 @@ const AddComponentSchema = z.object({
     quantity: z.coerce.number().min(0.0001, { message: "Kuantitas harus lebih dari 0." }),
 });
 
+const UpdateComponentQuantitySchema = z.object({
+    component_id: z.string().uuid(),
+    quantity: z.coerce.number().min(0.0001, { message: "Kuantitas harus lebih dari 0." }),
+    product_id: z.string().uuid(), // To revalidate the correct path
+});
+
+
 export type FormState = {
     message: string;
     errors?: Record<string, string[] | undefined>;
@@ -219,32 +226,21 @@ export async function addComponentToComposite(prevState: FormState, formData: Fo
         
         if (parentVariant.id === component_variant_id) return { message: "Tidak bisa menambahkan produk sebagai komponennya sendiri.", errors: {} };
 
-        // FIX: Find a default Unit of Measure
-        const { data: uom, error: uomError } = await supabase
-            .from('units_of_measure')
-            .select('id')
-            .eq('organization_id', organization_id)
-            .ilike('name', 'Pcs') // Case-insensitive search for 'Unit'
-            .single();
-
-        if (uomError || !uom) {
-            // Check for 'Pcs' as a fallback
+        const { data: uom, error: uomError } = await supabase.from('units_of_measure').select('id').eq('organization_id', organization_id).ilike('name', 'Unit').single();
+        if (uomError) {
              const { data: uomPcs, error: uomPcsError } = await supabase.from('units_of_measure').select('id').eq('organization_id', organization_id).ilike('name', 'Pcs').single();
-             if(uomPcsError || !uomPcs) {
-                throw new Error("Satuan unit 'Unit' atau 'Pcs' tidak ditemukan. Mohon buat terlebih dahulu di pengaturan.");
-             }
-             return await saveComponent(supabase, organization_id, parentVariant.id, component_variant_id, quantity, uomPcs.id);
+             if(uomPcsError || !uomPcs) throw new Error("Satuan unit 'Unit' atau 'Pcs' tidak ditemukan.");
+             return await saveComponent(supabase, organization_id, parentVariant.id, component_variant_id, quantity, uomPcs.id, parentProductId);
         }
 
-        return await saveComponent(supabase, organization_id, parentVariant.id, component_variant_id, quantity, uom.id);
+        return await saveComponent(supabase, organization_id, parentVariant.id, component_variant_id, quantity, uom.id, parentProductId);
 
     } catch (e: any) {
         return { message: e.message, errors: {} };
     }
 }
 
-// Helper function to save component to avoid repetition
-async function saveComponent(supabase: any, orgId: string, parentVarId: string, compVarId: string, qty: number, uomId: string) {
+async function saveComponent(supabase: any, orgId: string, parentVarId: string, compVarId: string, qty: number, uomId: string, parentProdId: string) {
     const { data: existing } = await supabase.from('product_composites').select('id, quantity').eq('parent_variant_id', parentVarId).eq('component_variant_id', compVarId).single();
     
     if (existing) {
@@ -257,12 +253,43 @@ async function saveComponent(supabase: any, orgId: string, parentVarId: string, 
             parent_variant_id: parentVarId, 
             component_variant_id: compVarId, 
             quantity: qty,
-            unit_of_measure_id: uomId, // Use the found UOM ID
+            unit_of_measure_id: uomId,
         });
         if (insertError) throw new Error(`Gagal menambahkan komponen: ${insertError.message}`);
     }
-    revalidatePath(`/dashboard/products/templates/${(await supabase.from('product_variants').select('product_id').eq('id', parentVarId).single()).data?.product_id}`);
+    revalidatePath(`/dashboard/products/templates/${parentProdId}`);
     return { message: "success" };
+}
+
+export async function updateComponentQuantity(formData: FormData) {
+    try {
+        const { supabase, organization_id } = await getSupabaseAndOrgId();
+        const rawData = Object.fromEntries(formData.entries());
+        const validatedFields = UpdateComponentQuantitySchema.safeParse(rawData);
+
+        if (!validatedFields.success) {
+            // In a real app, you might want to return an error message
+            console.error("Validation failed:", validatedFields.error.flatten().fieldErrors);
+            return;
+        }
+
+        const { component_id, quantity, product_id } = validatedFields.data;
+
+        const { error } = await supabase
+            .from('product_composites')
+            .update({ quantity })
+            .eq('id', component_id)
+            .eq('organization_id', organization_id); // Ensure user can only update their own components
+
+        if (error) {
+            throw new Error(`Gagal memperbarui kuantitas: ${error.message}`);
+        }
+
+        revalidatePath(`/dashboard/products/templates/${product_id}`);
+
+    } catch(e: any) {
+        console.error(e.message);
+    }
 }
 
 
@@ -382,8 +409,6 @@ export async function deleteVariant(formData: FormData): Promise<void> {
     let productId = '';
     try {
         const { supabase, organization_id } = await getSupabaseAndOrgId();
-        // The join syntax `product:products!inner(image_url)` might be incorrect depending on table relations
-        // A direct join might be needed if the relation isn't straightforwardly defined in Supabase
         const { data: variant, error: fetchError } = await supabase.from('product_variants').select('product_id, products(image_url)').eq('id', variantId).eq('organization_id', organization_id).single();
 
         if (fetchError || !variant) throw new Error("Varian tidak ditemukan.");
@@ -395,14 +420,13 @@ export async function deleteVariant(formData: FormData): Promise<void> {
             const { error: deleteError } = await supabase.from('products').delete().eq('id', productId);
             if (deleteError) throw new Error(`Gagal menghapus produk: ${deleteError.message}`);
             
-            const productsArray = variant.products;
-const imageUrl = (Array.isArray(productsArray) && productsArray.length > 0) ? productsArray[0].image_url : null;
+            const productsData = variant.products;
+            const imageUrl = Array.isArray(productsData) && productsData.length > 0 ? productsData[0]?.image_url : null;
 
-if (imageUrl) {
-    const oldImageName = imageUrl.split('/').pop();
-    if (oldImageName) await supabase.storage.from('product_images').remove([`${organization_id}/${oldImageName}`]);
-}
-
+            if (imageUrl) {
+                const oldImageName = imageUrl.split('/').pop();
+                if (oldImageName) await supabase.storage.from('product_images').remove([`${organization_id}/${oldImageName}`]);
+            }
         } else {
             const { error: deleteError } = await supabase.from('product_variants').delete().eq('id', variantId);
             if (deleteError) throw new Error(`Gagal menghapus varian: ${deleteError.message}`);

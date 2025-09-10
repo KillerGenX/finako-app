@@ -2,42 +2,67 @@
 
 import { useState, useTransition, useCallback, useEffect } from 'react';
 import { PlusCircle, Loader2, Search, Trash2 } from 'lucide-react';
-import { searchProductsForComponent, addComponentToComposite } from '../../actions';
+import { searchProductsForComponent, addComponentToComposite, updateComponentQuantity } from '../../actions';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import type { Product } from './ProductDetailClient';
-import type { CompositeComponent as InitialCompositeComponent } from './page';
+import type { CompositeComponent } from './page';
 
-export type CompositeComponent = InitialCompositeComponent;
+type SearchResult = { id: string; name: string; sku: string | null; image_url: string | null; };
 
-type SearchResult = {
-    id: string; 
-    name: string;
-    sku: string | null;
-    image_url: string | null;
-};
+// A new sub-component to handle the quantity updates
+function QuantityInput({ component, productId }: { component: CompositeComponent, productId: string }) {
+    const [quantity, setQuantity] = useState(component.quantity);
+    const debouncedQuantity = useDebounce(quantity, 500); // Debounce changes by 500ms
+    const [isPending, startTransition] = useTransition();
+
+    useEffect(() => {
+        // Only trigger update if the debounced value is different from the initial value
+        // and is a valid number.
+        if (debouncedQuantity !== component.quantity && debouncedQuantity > 0) {
+            const formData = new FormData();
+            formData.append('component_id', component.id);
+            formData.append('quantity', String(debouncedQuantity));
+            formData.append('product_id', productId);
+            
+            startTransition(async () => {
+                await updateComponentQuantity(formData);
+            });
+        }
+    }, [debouncedQuantity, component.id, component.quantity, productId]);
+
+    return (
+        <div className="relative">
+            <input 
+                type="number"
+                value={quantity}
+                onChange={(e) => setQuantity(Number(e.target.value))}
+                className="w-24 p-1 border rounded bg-transparent text-center"
+                min="0.01"
+                step="any"
+            />
+            {isPending && <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />}
+        </div>
+    );
+}
+
 
 export function CompositeManager({ product, initialComponents }: { product: Product, initialComponents: CompositeComponent[] }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [results, setResults] = useState<SearchResult[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [isPending, startTransition] = useTransition();
+    const [isAddComponentPending, startAddComponentTransition] = useTransition();
 
     const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
     const handleSearch = useCallback(async (query: string) => {
-        if (query.length < 2) {
-            setResults([]);
-            return;
-        }
+        if (query.length < 2) { setResults([]); return; }
         setIsLoading(true);
         const searchResults = await searchProductsForComponent(query);
         setResults(searchResults);
         setIsLoading(false);
     }, []);
 
-    useEffect(() => {
-        handleSearch(debouncedSearchTerm);
-    }, [debouncedSearchTerm, handleSearch]);
+    useEffect(() => { handleSearch(debouncedSearchTerm); }, [debouncedSearchTerm, handleSearch]);
     
     const handleAddComponent = (result: SearchResult) => {
         const formData = new FormData();
@@ -45,7 +70,7 @@ export function CompositeManager({ product, initialComponents }: { product: Prod
         formData.append('component_variant_id', result.id);
         formData.append('quantity', '1');
 
-        startTransition(async () => {
+        startAddComponentTransition(async () => {
             await addComponentToComposite({ message: '' }, formData);
             setSearchTerm('');
             setResults([]);
@@ -55,23 +80,14 @@ export function CompositeManager({ product, initialComponents }: { product: Prod
     return (
         <div>
             <h2 className="text-lg font-semibold mb-4">Komponen Produk (Resep)</h2>
-            
             <div className="relative mb-4">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search className="h-5 w-5 text-gray-400" />
-                </div>
+                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
                 <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Cari produk untuk ditambahkan sebagai komponen..."
+                    type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Cari produk untuk ditambahkan..."
                     className="w-full pl-10 pr-4 py-2 border rounded-lg bg-transparent"
                 />
-                {isLoading && (
-                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-                        <Loader2 className="h-5 w-5 text-gray-400 animate-spin" />
-                    </div>
-                )}
+                {isLoading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 animate-spin" />}
             </div>
 
             {results.length > 0 && (
@@ -79,17 +95,14 @@ export function CompositeManager({ product, initialComponents }: { product: Prod
                     <ul>
                         {results.map(result => (
                             <li key={result.id} className="border-b last:border-b-0">
-                                <button 
-                                    onClick={() => handleAddComponent(result)}
-                                    disabled={isPending}
-                                    className="w-full text-left flex items-center gap-4 p-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 disabled:opacity-50"
-                                >
+                                <button onClick={() => handleAddComponent(result)} disabled={isAddComponentPending}
+                                    className="w-full text-left flex items-center gap-4 p-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 disabled:opacity-50">
                                     <img src={result.image_url || '/Finako JPG.jpg'} alt={result.name} className="h-10 w-10 rounded object-cover" />
                                     <div className="flex-grow">
                                         <p className="font-medium">{result.name}</p>
                                         <p className="text-sm text-gray-500">{result.sku || 'No SKU'}</p>
                                     </div>
-                                    {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <PlusCircle className="h-6 w-6 text-teal-500" />}
+                                    {isAddComponentPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <PlusCircle className="h-6 w-6 text-teal-500" />}
                                 </button>
                             </li>
                         ))}
@@ -104,31 +117,21 @@ export function CompositeManager({ product, initialComponents }: { product: Prod
                             <tr>
                                 <th className="p-3 font-medium" colSpan={2}>Nama Komponen</th>
                                 <th className="p-3 font-medium">SKU</th>
-                                <th className="p-3 font-medium">Kuantitas</th>
+                                <th className="p-3 font-medium text-center">Kuantitas</th>
                                 <th className="p-3"></th>
                             </tr>
                         </thead>
                         <tbody>
                             {initialComponents.map(c => {
-                                // FIX: Access data through the correct path `component_details`
                                 const details = c.component_details;
-                                const displayName = details.product_name !== details.name 
-                                    ? `${details.product_name} - ${details.name}` 
-                                    : details.product_name;
-
+                                const displayName = details.product_name !== details.name ? `${details.product_name} - ${details.name}` : details.product_name;
                                 return (
                                     <tr key={c.id} className="border-t">
-                                        <td className="p-3 w-12">
-                                            <img src={details.image_url || '/Finako JPG.jpg'} alt={displayName} className="h-10 w-10 rounded object-cover" />
-                                        </td>
+                                        <td className="p-3 w-12"><img src={details.image_url || '/Finako JPG.jpg'} alt={displayName} className="h-10 w-10 rounded object-cover" /></td>
                                         <td className="p-3 font-medium">{displayName}</td>
                                         <td className="p-3">{details.sku || '-'}</td>
-                                        <td className="p-3">
-                                            <input type="number" defaultValue={c.quantity} className="w-20 p-1 border rounded bg-transparent" />
-                                        </td>
-                                        <td className="p-3 text-right">
-                                            <button className="text-red-500 hover:text-red-700 p-1"><Trash2 size={16} /></button>
-                                        </td>
+                                        <td className="p-3 text-center"><QuantityInput component={c} productId={product.id} /></td>
+                                        <td className="p-3 text-right"><button className="text-red-500 hover:text-red-700 p-1"><Trash2 size={16} /></button></td>
                                     </tr>
                                 );
                             })}
