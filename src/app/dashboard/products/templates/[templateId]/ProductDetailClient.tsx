@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useOptimistic, useCallback } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, PlusCircle, Edit, Trash2, MoreHorizontal, Warehouse, Loader2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Edit, Trash2, MoreHorizontal, Warehouse, Loader2, AlertTriangle, Tag, Package, Boxes, Barcode, TrendingUp, Landmark, CircleDollarSign } from 'lucide-react';
 import { AddEditVariantModal } from './AddEditVariantModal';
 import { EditTemplateModal } from './EditTemplateModal';
 import { CompositeManager, CompositeComponent } from './CompositeManager';
@@ -24,7 +24,92 @@ export type Variant = {
 type SelectOption = { id: string; name: string; };
 type TaxOption = { id: string; name: string; rate: number; };
 
-// ============== SUB-COMPONENTS (Unchanged) ==============
+// ============== SUB-COMPONENTS ==============
+
+// A new, smarter info card component
+const ProductInfoCard = ({ product, variants, components, onEditInfo, onEditPrice, onDelete }: {
+    product: Product;
+    variants: Variant[];
+    components: CompositeComponent[];
+    onEditInfo: () => void;
+    onEditPrice: (v: Variant) => void;
+    onDelete: () => void;
+}) => {
+    const singleVariantData = variants.length > 0 ? variants[0] : null;
+
+    const typeInfo = {
+        SINGLE: { text: 'Produk Tunggal', color: 'bg-teal-500', icon: <Package size={14} /> },
+        VARIANT: { text: 'Produk Bervarian', color: 'bg-sky-500', icon: <Boxes size={14} /> },
+        COMPOSITE: { text: 'Produk Komposit', color: 'bg-orange-500', icon: <Tag size={14} /> },
+        SERVICE: { text: 'Jasa', color: 'bg-purple-500', icon: <Tag size={14} /> },
+    };
+
+    const InfoRow = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: React.ReactNode }) => (
+        <div className="flex justify-between items-center text-sm">
+            <div className="flex items-center text-gray-500 gap-2">
+                {icon}
+                <span>{label}</span>
+            </div>
+            <span className="font-semibold">{value}</span>
+        </div>
+    );
+    
+    // Calculations for display
+    const totalStock = variants.reduce((acc, v) => acc + (v.total_stock || 0), 0);
+    const priceRange = variants.length > 1 
+        ? `${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(Math.min(...variants.map(v => v.selling_price)))} - ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(Math.max(...variants.map(v => v.selling_price)))}`
+        : null;
+    const profit = singleVariantData && singleVariantData.cost_price ? singleVariantData.selling_price - singleVariantData.cost_price : null;
+    const margin = profit && singleVariantData && singleVariantData.selling_price > 0 ? (profit / singleVariantData.selling_price) * 100 : null;
+
+    return (
+        <div className="lg:col-span-1 p-6 bg-white dark:bg-gray-900/50 rounded-lg border flex flex-col text-center">
+            <img src={product.image_url || '/Finako JPG.jpg'} alt={product.name} className="h-40 w-40 rounded-lg object-cover mb-4 mx-auto" onError={(e) => { e.currentTarget.src = '/Finako JPG.jpg'; }} />
+            <h1 className="text-2xl font-bold">{product.name}</h1>
+            <div className={`inline-flex items-center gap-2 text-xs font-medium text-white px-2 py-1 rounded-full self-center my-2 ${typeInfo[product.product_type].color}`}>
+                {typeInfo[product.product_type].icon}
+                {typeInfo[product.product_type].text}
+            </div>
+            <p className="mt-2 text-sm text-gray-500">{product.description || 'Tidak ada deskripsi.'}</p>
+            
+            <div className="mt-4 text-left w-full space-y-3 pt-4 border-t">
+                {product.product_type === 'SINGLE' && singleVariantData && (
+                    <>
+                        <InfoRow icon={<CircleDollarSign size={16}/>} label="Harga Jual" value={new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(singleVariantData.selling_price)} />
+                        <InfoRow icon={<Landmark size={16}/>} label="Harga Pokok" value={singleVariantData.cost_price ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(singleVariantData.cost_price) : '-'} />
+                        {profit !== null && <InfoRow icon={<TrendingUp size={16}/>} label="Laba Kotor" value={`${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(profit)} (${margin?.toFixed(0)}%)`} />}
+                        <InfoRow icon={<Warehouse size={16}/>} label="Total Stok" value={`${totalStock} unit`} />
+                        <InfoRow icon={<Barcode size={16}/>} label="SKU" value={<span className="font-mono bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">{singleVariantData.sku || '-'}</span>} />
+                    </>
+                )}
+                 {product.product_type === 'VARIANT' && (
+                    <>
+                        <InfoRow icon={<Boxes size={16}/>} label="Jumlah Varian" value={`${variants.length} varian`} />
+                        {priceRange && <InfoRow icon={<CircleDollarSign size={16}/>} label="Rentang Harga" value={priceRange} />}
+                        <InfoRow icon={<Warehouse size={16}/>} label="Total Stok" value={`${totalStock} unit`} />
+                    </>
+                )}
+                 {product.product_type === 'COMPOSITE' && singleVariantData && (
+                    <>
+                         <InfoRow icon={<CircleDollarSign size={16}/>} label="Harga Jual" value={new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(singleVariantData.selling_price)} />
+                         <InfoRow icon={<Landmark size={16}/>} label="HPP Otomatis" value={"Menunggu..."} />
+                         <InfoRow icon={<Tag size={16}/>} label="Jumlah Komponen" value={`${components.length} komponen`} />
+                         <InfoRow icon={<Barcode size={16}/>} label="SKU" value={<span className="font-mono bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">{singleVariantData.sku || '-'}</span>} />
+                    </>
+                )}
+            </div>
+
+            <div className="mt-4 flex flex-wrap justify-center gap-4 pt-4 border-t">
+                <button onClick={onEditInfo} className="text-sm text-teal-600 hover:underline">Edit Info</button>
+                {(product.product_type === 'SINGLE' || product.product_type === 'COMPOSITE') && singleVariantData && (
+                     <button onClick={() => onEditPrice(singleVariantData)} className="text-sm text-teal-600 hover:underline">Edit Harga/SKU</button>
+                )}
+                <button onClick={onDelete} className="text-sm text-red-600 hover:underline">Hapus</button>
+            </div>
+        </div>
+    )
+}
+
 function DeleteVariantButton() {
     const { pending } = useFormStatus();
     return ( <button type="submit" disabled={pending} className="w-full text-left flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"> {pending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Menghapus...</> : <><Trash2 className="mr-2 h-4 w-4" /> Hapus Varian</>} </button> );
@@ -61,7 +146,6 @@ const ActionsMenu = ({ variant, onEdit }: { variant: Variant, onEdit: () => void
     );
 };
 
-// ============== MAIN CLIENT COMPONENT ==============
 export function ProductDetailClient({ 
     product, 
     initialVariants, 
@@ -128,34 +212,15 @@ export function ProductDetailClient({
         <>
             <div className="mb-6"><Link href="/dashboard/products" className="inline-flex items-center text-sm font-medium text-gray-600 hover:text-gray-900"><ArrowLeft className="h-4 w-4 mr-2" />Kembali ke Daftar Produk</Link></div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-                <div className="lg:col-span-1 p-6 bg-white dark:bg-gray-900/50 rounded-lg border flex flex-col items-center text-center">
-                    <img src={product.image_url || '/Finako JPG.jpg'} alt={product.name} className="h-40 w-40 rounded-lg object-cover mb-4" onError={(e) => { e.currentTarget.src = '/Finako JPG.jpg'; }} />
-                    <h1 className="text-2xl font-bold">{product.name}</h1>
-                    <p className="mt-2 text-sm text-gray-500">{product.description || 'Tidak ada deskripsi.'}</p>
-                    
-                    {/* CORRECTED LOGIC: Show for SINGLE and COMPOSITE */}
-                    {(product.product_type === 'SINGLE' || product.product_type === 'COMPOSITE') && singleVariantData && (
-                        <div className="mt-4 text-left bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg w-full">
-                            <div className="flex justify-between items-baseline">
-                                <span className="text-sm font-medium text-gray-500">Harga Jual</span>
-                                <span className="text-lg font-semibold text-teal-600">{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(singleVariantData.selling_price)}</span>
-                            </div>
-                            <div className="flex justify-between items-baseline mt-1">
-                                <span className="text-sm font-medium text-gray-500">SKU</span>
-                                <span className="text-sm font-mono bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">{singleVariantData.sku || '-'}</span>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="mt-4 flex flex-wrap justify-center gap-4">
-                        <button onClick={handleOpenTemplateModal} className="text-sm text-teal-600 hover:underline">Edit Info</button>
-                        {/* CORRECTED LOGIC: Show for SINGLE and COMPOSITE */}
-                        {(product.product_type === 'SINGLE' || product.product_type === 'COMPOSITE') && singleVariantData && (
-                             <button onClick={() => handleOpenVariantModal(singleVariantData)} className="text-sm text-teal-600 hover:underline">Edit Harga/SKU</button>
-                        )}
-                        <button onClick={() => setDeleteConfirmOpen(true)} className="text-sm text-red-600 hover:underline">Hapus</button>
-                    </div>
-                </div>
+                
+                <ProductInfoCard 
+                    product={product} 
+                    variants={initialVariants} 
+                    components={initialComponents}
+                    onEditInfo={handleOpenTemplateModal}
+                    onEditPrice={handleOpenVariantModal}
+                    onDelete={() => setDeleteConfirmOpen(true)}
+                />
                 
                 <div className="lg:col-span-2 p-6 bg-white dark:bg-gray-900/50 rounded-lg border">
                     {renderMainContent()}
