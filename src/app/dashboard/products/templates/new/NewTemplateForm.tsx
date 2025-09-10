@@ -19,7 +19,7 @@ function SubmitButton({ productType }: { productType: ProductType }) {
     const buttonText = {
         'SINGLE': 'Simpan Produk',
         'VARIANT': 'Lanjutkan & Tambah Varian',
-        'COMPOSITE': 'Lanjutkan & Tambah Komposisi',
+        'COMPOSITE': 'Lanjutkan & Tambah Komponen',
         'SERVICE': 'Simpan Jasa'
     };
     return ( <button type="submit" disabled={pending} className="inline-flex items-center justify-center px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50"> {pending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Menyimpan...</> : buttonText[productType]} </button> );
@@ -33,7 +33,7 @@ const FormSelect = ({ id, label, options, error, manageLink }: { id: string, lab
 const productTypes: { key: ProductType, label: string, disabled: boolean, comingSoon: boolean }[] = [
     { key: 'SINGLE', label: 'Produk Tunggal', disabled: false, comingSoon: false },
     { key: 'VARIANT', label: 'Produk dengan Varian', disabled: false, comingSoon: false },
-    { key: 'COMPOSITE', label: 'Produk Komposit', disabled: true, comingSoon: true },
+    { key: 'COMPOSITE', label: 'Produk Komposit', disabled: false, comingSoon: false },
     { key: 'SERVICE', label: 'Jasa', disabled: true, comingSoon: true }
 ];
 
@@ -110,20 +110,23 @@ export function NewTemplateForm({ categories, brands, taxes }: { categories: Sel
                             </div>
                         </div>
                         
-                        {productType === 'SINGLE' && (
+                        {(productType === 'SINGLE' || productType === 'COMPOSITE') && (
                            <div className="p-6 bg-white dark:bg-gray-900/50 rounded-lg border dark:border-gray-800 transition-all duration-300 ease-in-out">
                                 <h2 className="text-lg font-semibold mb-4">Harga & Stok</h2>
                                 <div className="space-y-4">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <FormInput id="selling_price" label="Harga Jual" type="number" required placeholder="Contoh: 50000" step="0.01" error={state.errors?.selling_price} />
-                                        <FormInput id="cost_price" label="Harga Pokok" type="number" placeholder="Opsional" step="0.01" error={state.errors?.cost_price} />
+                                        {productType === 'SINGLE' && (
+                                            <FormInput id="cost_price" label="Harga Pokok" type="number" placeholder="Opsional" step="0.01" error={state.errors?.cost_price} />
+                                        )}
                                     </div>
                                     <FormInput id="sku" label="SKU (Stock Keeping Unit)" placeholder="Opsional" type="text" error={state.errors?.sku} />
-                                    <div className="pt-2">
+                                     <div className="pt-2">
                                         <label className="flex items-center gap-2 font-normal cursor-pointer">
-                                            <input type="checkbox" name="track_stock" id="track_stock" defaultChecked className="form-checkbox rounded text-teal-600" />
+                                            <input type="checkbox" name="track_stock" id="track_stock" defaultChecked={productType === 'SINGLE'} className="form-checkbox rounded text-teal-600" />
                                             <span className="text-sm font-medium">Lacak Stok untuk produk ini</span>
                                         </label>
+                                         {productType === 'COMPOSITE' && <p className="text-xs text-gray-500 mt-1 ml-6">Stok produk komposit ditentukan oleh ketersediaan komponennya.</p>}
                                     </div>
                                 </div>
                             </div>

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, PlusCircle, Edit, Trash2, MoreHorizontal, Warehouse, Loader2, AlertTriangle } from 'lucide-react';
 import { AddEditVariantModal } from './AddEditVariantModal';
 import { EditTemplateModal } from './EditTemplateModal';
+import { CompositeManager } from './CompositeManager'; // Import the new component
 import { deleteVariant, deleteProductTemplate } from '../../actions';
 import { useFormStatus } from 'react-dom';
 
@@ -13,6 +14,7 @@ type Product = {
     id: string; name: string; description: string | null; image_url: string | null;
     category_id: string | null; brand_id: string | null;
     product_tax_rates: { tax_rate_id: string }[];
+    product_type: 'SINGLE' | 'VARIANT' | 'COMPOSITE' | 'SERVICE'; // Added product_type
 };
 export type Variant = {
     id: string; name: string; sku: string | null; selling_price: number;
@@ -21,7 +23,7 @@ export type Variant = {
 type SelectOption = { id: string; name: string; };
 type TaxOption = { id: string; name: string; rate: number; };
 
-// ============== SUB-COMPONENTS ==============
+// ============== SUB-COMPONENTS (No changes here) ==============
 function DeleteVariantButton() {
     const { pending } = useFormStatus();
     return ( <button type="submit" disabled={pending} className="w-full text-left flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"> {pending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Menghapus...</> : <><Trash2 className="mr-2 h-4 w-4" /> Hapus Varian</>} </button> );
@@ -74,10 +76,35 @@ export function ProductDetailClient({ product, initialVariants, categories, bran
     const handleOpenTemplateModal = useCallback(() => setTemplateModalOpen(true), []);
     const handleCloseTemplateModal = useCallback(() => setTemplateModalOpen(false), []);
 
+    // Helper component for Variant Management UI
+    const VariantManager = () => (
+        <>
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold">Varian Produk</h2>
+                <button onClick={() => handleOpenVariantModal()} className="inline-flex items-center px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"><PlusCircle className="h-5 w-5 mr-2" />Tambah Varian</button>
+            </div>
+            {optimisticVariants.length > 0 ? (
+                <table className="min-w-full text-sm">
+                    <thead className="text-left text-gray-500"><tr><th className="p-3 font-medium">Nama</th><th className="p-3 font-medium">SKU</th><th className="p-3 font-medium">Harga Jual</th><th className="p-3 font-medium">Stok</th><th className="p-3"></th></tr></thead>
+                    <tbody>
+                        {optimisticVariants.map(v => <tr key={v.id} className="border-t"><td className="p-3">{v.name}</td><td className="p-3">{v.sku || '-'}</td><td className="p-3">{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(v.selling_price)}</td><td className="p-3 font-semibold">{v.total_stock ?? 'N/A'} unit</td><td className="p-3 text-right"><ActionsMenu variant={v} onEdit={() => handleOpenVariantModal(v)} /></td></tr>)}
+                    </tbody>
+                </table>
+            ) : (
+                <div className="text-center py-12 border-2 border-dashed rounded-lg">
+                    <h3 className="text-xl font-semibold">Belum Ada Varian</h3>
+                    <p className="text-gray-500 mt-2">Produk ini belum memiliki varian yang bisa dijual.</p>
+                    <button onClick={() => handleOpenVariantModal()} className="mt-4 inline-flex items-center px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"><PlusCircle className="h-5 w-5 mr-2" />Tambah Varian Pertama</button>
+                </div>
+            )}
+        </>
+    );
+
     return (
         <>
             <div className="mb-6"><Link href="/dashboard/products" className="inline-flex items-center text-sm font-medium text-gray-600 hover:text-gray-900"><ArrowLeft className="h-4 w-4 mr-2" />Kembali ke Daftar Produk</Link></div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                {/* Product Info Card (Left side) - No changes */}
                 <div className="lg:col-span-1 p-6 bg-white dark:bg-gray-900/50 rounded-lg border flex flex-col items-center">
                     <img src={product.image_url || '/Finako JPG.jpg'} alt={product.name} className="h-40 w-40 rounded-lg object-cover mb-4" onError={(e) => { e.currentTarget.src = '/Finako JPG.jpg'; }} />
                     <h1 className="text-2xl font-bold text-center">{product.name}</h1>
@@ -87,31 +114,21 @@ export function ProductDetailClient({ product, initialVariants, categories, bran
                         <button onClick={() => setDeleteConfirmOpen(true)} className="text-sm text-red-600 hover:underline">Hapus</button>
                     </div>
                 </div>
+                
+                {/* Main Content Area (Right side) - CONDITIONAL RENDERING IMPLEMENTED HERE */}
                 <div className="lg:col-span-2 p-6 bg-white dark:bg-gray-900/50 rounded-lg border">
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-lg font-semibold">Varian Produk</h2>
-                        <button onClick={() => handleOpenVariantModal()} className="inline-flex items-center px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"><PlusCircle className="h-5 w-5 mr-2" />Tambah Varian</button>
-                    </div>
-                    {optimisticVariants.length > 0 ? (
-                        <table className="min-w-full text-sm">
-                            <thead className="text-left text-gray-500"><tr><th className="p-3 font-medium">Nama</th><th className="p-3 font-medium">SKU</th><th className="p-3 font-medium">Harga Jual</th><th className="p-3 font-medium">Stok</th><th className="p-3"></th></tr></thead>
-                            <tbody>
-                                {optimisticVariants.map(v => <tr key={v.id} className="border-t"><td className="p-3">{v.name}</td><td className="p-3">{v.sku || '-'}</td><td className="p-3">{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(v.selling_price)}</td><td className="p-3 font-semibold">{v.total_stock ?? 'N/A'} unit</td><td className="p-3 text-right"><ActionsMenu variant={v} onEdit={() => handleOpenVariantModal(v)} /></td></tr>)}
-                            </tbody>
-                        </table>
+                    {product.product_type === 'COMPOSITE' ? (
+                        <CompositeManager />
                     ) : (
-                        <div className="text-center py-12 border-2 border-dashed rounded-lg">
-                            <h3 className="text-xl font-semibold">Belum Ada Varian</h3>
-                            <p className="text-gray-500 mt-2">Produk ini belum memiliki varian yang bisa dijual.</p>
-                            <button onClick={() => handleOpenVariantModal()} className="mt-4 inline-flex items-center px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"><PlusCircle className="h-5 w-5 mr-2" />Tambah Varian Pertama</button>
-                        </div>
+                        <VariantManager />
                     )}
                 </div>
             </div>
+            
+            {/* Modals - No changes */}
             <AddEditVariantModal key={variantModal.variant?.id || 'newVariant'} isOpen={variantModal.isOpen} onClose={handleCloseVariantModal} productId={product.id} initialData={variantModal.variant} />
             <EditTemplateModal key={product.id} isOpen={isTemplateModalOpen} onClose={handleCloseTemplateModal} initialData={product} categories={categories} brands={brands} taxes={taxes} />
             
-            {/* Delete Confirmation Modal */}
             {isDeleteConfirmOpen && (
                 <div className="fixed z-50 inset-0 overflow-y-auto">
                     <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">

@@ -9,7 +9,7 @@ import { z } from 'zod';
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
-// Schema for the product template form (base for all types)
+// Schemas... (existing schemas are unchanged)
 const BaseProductSchema = z.object({
     name: z.string().min(3, { message: "Nama produk harus diisi." }),
     description: z.string().optional(),
@@ -19,18 +19,16 @@ const BaseProductSchema = z.object({
     product_type: z.enum(['SINGLE', 'VARIANT', 'COMPOSITE', 'SERVICE']),
 });
 
-// Schema specifically for SINGLE products, which includes variant fields
-const SingleProductSchema = BaseProductSchema.extend({
+const PricedProductSchema = BaseProductSchema.extend({
     selling_price: z.coerce.number().min(0, { message: "Harga jual harus diisi." }),
     cost_price: z.coerce.number().min(0).optional(),
     sku: z.string().optional(),
     track_stock: z.boolean(),
 });
 
-// Schema for adding or updating a variant
 const VariantSchema = z.object({
     product_id: z.string().uuid(),
-    variant_id: z.string().uuid().optional(), // Present only on edit
+    variant_id: z.string().uuid().optional(),
     name: z.string().min(1, { message: "Nama varian harus diisi." }),
     selling_price: z.coerce.number().min(0, { message: "Harga jual harus diisi." }),
     cost_price: z.coerce.number().min(0).optional(),
@@ -44,11 +42,13 @@ const ImageSchema = z.object({
         .refine(file => !file || file.size === 0 || ACCEPTED_IMAGE_TYPES.includes(file?.type), "Hanya .jpg, .png, .webp."),
 });
 
+
 export type FormState = {
     message: string;
     errors?: Record<string, string[] | undefined>;
 };
 
+// Helper functions... (existing helpers are unchanged)
 async function getSupabaseAndOrgId() {
     const cookieStore = await cookies();
     const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { cookies: { get: (name: string) => cookieStore.get(name)?.value, set: (name: string, value: string, options) => cookieStore.set({ name, value, ...options }), remove: (name: string, options) => cookieStore.set({ name, value: '', ...options }), }, });
@@ -82,19 +82,18 @@ async function updateProductTaxes(supabase: any, productId: string, taxRateIds: 
     }
 }
 
-
-// ============== CREATE PRODUCT ACTION ==============
+// createProductTemplate... (existing function is unchanged)
 export async function createProductTemplate(prevState: FormState, formData: FormData): Promise<FormState> {
     let templateId: string | null = null;
+    const productType = formData.get('product_type') as 'SINGLE' | 'VARIANT' | 'COMPOSITE';
+
     try {
         const { supabase, organization_id } = await getSupabaseAndOrgId();
         const rawData = Object.fromEntries(formData.entries());
         
-        // Sanitize optional fields
         if (rawData.category_id === '') rawData.category_id = null;
         if (rawData.brand_id === '') rawData.brand_id = null;
         
-        const productType = rawData.product_type as 'SINGLE' | 'VARIANT';
         const imageFile = rawData.image_url as File;
         const taxIds = formData.getAll('tax_rate_ids') as string[];
         
@@ -105,8 +104,10 @@ export async function createProductTemplate(prevState: FormState, formData: Form
             track_stock: rawData.track_stock === 'on'
         };
 
-        // Validate based on product type
-        const validationSchema = productType === 'SINGLE' ? SingleProductSchema.extend({ image_url: ImageSchema.shape.image_url }) : BaseProductSchema.extend({ image_url: ImageSchema.shape.image_url });
+        const validationSchema = (productType === 'SINGLE' || productType === 'COMPOSITE')
+            ? PricedProductSchema.extend({ image_url: ImageSchema.shape.image_url })
+            : BaseProductSchema.extend({ image_url: ImageSchema.shape.image_url });
+
         const validatedFields = validationSchema.safeParse(fullRawData);
 
         if (!validatedFields.success) {
@@ -116,7 +117,6 @@ export async function createProductTemplate(prevState: FormState, formData: Form
         const { name, description, category_id, brand_id, tax_rate_ids } = validatedFields.data;
         const newImageUrl = await handleImageUpload(supabase, organization_id, imageFile);
 
-        // Insert into products table (template)
         const { data: product, error: productError } = await supabase.from('products').insert({ 
             organization_id, 
             name, 
@@ -132,9 +132,9 @@ export async function createProductTemplate(prevState: FormState, formData: Form
         templateId = product.id;
         await updateProductTaxes(supabase, templateId, tax_rate_ids);
 
-        // If it's a SINGLE product, also create the variant
-        if (productType === 'SINGLE' && validatedFields.data.product_type === 'SINGLE') {
-            const { selling_price, cost_price, sku: rawSku, track_stock } = validatedFields.data;
+        if ((productType === 'SINGLE' || productType === 'COMPOSITE') && 'selling_price' in validatedFields.data) {
+            const { selling_price, sku: rawSku, track_stock } = validatedFields.data;
+            const cost_price = productType === 'SINGLE' ? validatedFields.data.cost_price : 0;
             
             let sku = rawSku;
             if (!sku || sku.trim() === '') {
@@ -144,7 +144,7 @@ export async function createProductTemplate(prevState: FormState, formData: Form
             const { error: variantError } = await supabase.from('product_variants').insert({
                 organization_id,
                 product_id: templateId,
-                name: name, // For single products, variant name is same as product name
+                name: name,
                 selling_price,
                 cost_price: cost_price || 0,
                 sku,
@@ -153,7 +153,6 @@ export async function createProductTemplate(prevState: FormState, formData: Form
             });
 
             if (variantError) {
-                 // Clean up the created product template if variant creation fails
                 await supabase.from('products').delete().eq('id', templateId);
                 if (variantError.code === '23505') return { message: `Error: SKU '${sku}' sudah ada.`, errors: { sku: ["SKU ini sudah digunakan."] } };
                 throw new Error(`Gagal menyimpan varian produk: ${variantError.message}`);
@@ -164,8 +163,7 @@ export async function createProductTemplate(prevState: FormState, formData: Form
         return { message: e.message, errors: {} };
     }
 
-    // Redirect based on product type
-    if (formData.get('product_type') === 'SINGLE') {
+    if (productType === 'SINGLE') {
         revalidatePath('/dashboard/products');
         redirect('/dashboard/products');
     } else {
@@ -174,8 +172,48 @@ export async function createProductTemplate(prevState: FormState, formData: Form
 }
 
 
-// ============== UPDATE, DELETE ACTIONS (EXISTING) ==============
+// ============== NEW COMPOSITE ACTIONS ==============
 
+export async function searchProductsForComponent(query: string) {
+    if (!query) return [];
+    try {
+        const { supabase, organization_id } = await getSupabaseAndOrgId();
+        
+        // Use the existing RPC function which is perfect for this
+        const { data, error } = await supabase
+            .rpc('get_products_with_stock', { p_organization_id: organization_id });
+
+        if (error) {
+            throw new Error('Gagal mencari produk: ' + error.message);
+        }
+
+        // Filter in-memory based on the query. This is efficient for a reasonable number of products.
+        // We search by name (case-insensitive) and SKU.
+        const lowercasedQuery = query.toLowerCase();
+        const results = data.filter(p => 
+            p.name.toLowerCase().includes(lowercasedQuery) || 
+            (p.sku && p.sku.toLowerCase().includes(lowercasedQuery))
+        )
+        // We only want to add SINGLE or VARIANT products as components
+        .filter(p => p.product_type === 'SINGLE' || p.product_type === 'VARIANT')
+        .slice(0, 10); // Limit results to avoid overwhelming the UI
+
+        return results.map(p => ({
+            id: p.id, // This is the variant_id, which is what we need to link
+            name: p.name,
+            sku: p.sku,
+            image_url: p.image_url
+        }));
+
+    } catch (e: any) {
+        console.error("Server Action Error:", e.message);
+        // In a real app, you might want a more robust error handling/logging mechanism
+        return [];
+    }
+}
+
+
+// ... (rest of the existing functions: updateProductTemplate, addOrUpdateVariant, etc.)
 export async function updateProductTemplate(prevState: FormState, formData: FormData): Promise<FormState> {
     const productId = formData.get('product_id') as string;
     if (!productId) return { message: "ID Produk tidak ditemukan.", errors: {} };
