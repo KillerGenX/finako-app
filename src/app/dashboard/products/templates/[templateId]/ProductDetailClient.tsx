@@ -26,7 +26,6 @@ type TaxOption = { id: string; name: string; rate: number; };
 
 // ============== SUB-COMPONENTS ==============
 
-// A new, smarter info card component
 const ProductInfoCard = ({ product, variants, components, onEditInfo, onEditPrice, onDelete }: {
     product: Product;
     variants: Variant[];
@@ -54,7 +53,6 @@ const ProductInfoCard = ({ product, variants, components, onEditInfo, onEditPric
         </div>
     );
     
-    // Calculations for display
     const totalStock = variants.reduce((acc, v) => acc + (v.total_stock || 0), 0);
     const priceRange = variants.length > 1 
         ? `${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(Math.min(...variants.map(v => v.selling_price)))} - ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(Math.max(...variants.map(v => v.selling_price)))}`
@@ -133,7 +131,7 @@ const ActionsMenu = ({ variant, onEdit }: { variant: Variant, onEdit: () => void
         <div className="relative inline-block text-left" ref={menuRef}>
             <button onClick={() => setIsOpen(!isOpen)} className="text-gray-500 p-2 rounded-full hover:bg-gray-100"><MoreHorizontal size={20} /></button>
             {isOpen && (
-                <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 z-10">
+                <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 z-20">
                     <div className="py-1">
                         <Link href={`/dashboard/inventory/${variant.id}`} className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"><Warehouse className="mr-2 h-4 w-4" /> Kelola Stok</Link>
                         <button onClick={() => { onEdit(); setIsOpen(false); }} className="w-full text-left flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"><Edit className="mr-2 h-4 w-4" /> Edit Varian</button>
@@ -231,7 +229,33 @@ export function ProductDetailClient({
             <EditTemplateModal key={product.id} isOpen={isTemplateModalOpen} onClose={handleCloseTemplateModal} initialData={product} categories={categories} brands={brands} taxes={taxes} />
             
             {isDeleteConfirmOpen && (
-                 <div className="fixed z-50 inset-0 overflow-y-auto"><div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0"><div className="fixed inset-0 transition-opacity" aria-hidden="true"><div className="absolute inset-0 bg-gray-500 opacity-75"></div></div><span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span><div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full"><div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4"><div className="sm:flex sm:items-start"><div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10"><AlertTriangle className="h-6 w-6 text-red-600" /></div><div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left"><h3 className="text-lg leading-6 font-medium text-gray-900">Hapus Produk</h3><div className="mt-2"><p className="text-sm text-gray-500">Anda yakin ingin menghapus produk "{product.name}"? Semua varian terkait akan dihapus secara permanen. Tindakan ini tidak dapat diurungkan.</p></div></div></div></div><div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse"><form action={deleteProductTemplate}><input type="hidden" name="product_id" value={product.id} /><DeleteTemplateButton /></form><button type="button" onClick={() => setDeleteConfirmOpen(false)} className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm">Batal</button></div></div></div></div>
+                <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4 backdrop-blur-sm" onClick={() => setDeleteConfirmOpen(false)}>
+                    <div className="relative bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full"
+                         onClick={e => e.stopPropagation()}>
+                        <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                            <div className="sm:flex sm:items-start">
+                                <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                                    <AlertTriangle className="h-6 w-6 text-red-600" />
+                                </div>
+                                <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                                    <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100">Hapus Produk</h3>
+                                    <div className="mt-2">
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">Anda yakin ingin menghapus produk "{product.name}"? Semua varian terkait akan dihapus secara permanen. Tindakan ini tidak dapat diurungkan.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="bg-gray-50 dark:bg-gray-800/50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                            <form action={deleteProductTemplate}>
+                                <input type="hidden" name="product_id" value={product.id} />
+                                <DeleteTemplateButton />
+                            </form>
+                            <button type="button" onClick={() => setDeleteConfirmOpen(false)} className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 sm:mt-0 sm:w-auto sm:text-sm">
+                                Batal
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </>
     );
