@@ -1,6 +1,6 @@
 # Dokumentasi Aplikasi Finako
 
-Versi: 1.4
+Versi: 1.6
 Tanggal Pembaruan: [Tanggal Hari Ini]
 
 ---
@@ -26,51 +26,52 @@ Finako adalah aplikasi Point of Sale (POS) berbasis SaaS (Software as a Service)
 
 ### **Fase Pengembangan**
 
-#### **Fase 1-6: Fondasi & Modul Produk Komprehensif - Selesai**
-Fase awal berfokus pada penyiapan proyek, otentikasi, dan implementasi modul produk yang lengkap, mencakup tipe `SINGLE`, `VARIANT`, dan `COMPOSITE`, beserta penyempurnaan UI/UX di halaman detail.
+#### **Fase 1-8: Fondasi, Produk, & Inventaris - Selesai**
+Fase-fase awal berfokus pada penyiapan proyek, otentikasi, implementasi modul produk yang komprehensif (termasuk tipe `SINGLE`, `VARIANT`, `COMPOSITE`, `SERVICE`), dan fungsionalitas inti manajemen stok (penyesuaian, transfer, dll.). Sistem juga diperkuat dengan perhitungan HPP otomatis dan keamanan multi-tenancy.
 
 ---
 
-#### **Fase 7: Fondasi Manajemen Inventaris - Selesai**
-Tahap ini mengimplementasikan fungsionalitas inti untuk manajemen stok yang memungkinkan kontrol penuh atas pergerakan barang di berbagai lokasi.
+#### **Fase 9: Penyempurnaan & Kelengkapan Modul POS - Selesai**
+Fase ini mengubah halaman POS dasar menjadi alat kasir yang matang dan profesional dengan logika bisnis yang kompleks dan akurat.
 **Pencapaian Utama:**
-- **Manajemen Stok per Varian:** Kemampuan untuk melihat riwayat dan level stok untuk setiap varian produk secara individual.
-- **Penyesuaian Stok (Stock Adjustment):** Fungsionalitas penuh untuk menambah atau mengurangi stok secara manual dengan alasan (misal: rusak, hilang, stok opname).
-- **Transfer Stok Antar-Outlet:** Alur kerja yang jelas untuk memindahkan stok dari satu outlet ke outlet lainnya.
-
----
-
-#### **Fase 8: Fitur Lanjutan & Penguatan Sistem - Selesai**
-Fase ini menambahkan kecerdasan bisnis, mengimplementasikan tipe produk jasa, dan memperkuat keamanan serta ketahanan sistem secara keseluruhan.
-**Pencapaian Utama:**
-- **Implementasi HPP Ototmatis:** Produk komposit kini secara otomatis menghitung HPP dan Laba Kotor.
-- **Implementasi Tipe Produk "Jasa":** Tipe produk `SERVICE` telah diaktifkan sepenuhnya.
-- **Penguatan Multi-Tenancy:**
-    - Berhasil melakukan verifikasi keamanan data produk, kategori, merek, dll., antar organisasi.
-    - Memperbaiki bug kritis di mana notifikasi bisa dilihat oleh pengguna dari organisasi lain.
-- **Perbaikan Bug & UX:** Mengatasi masalah `NEXT_REDIRECT`, memperbaiki logika penamaan ganda, dan menyempurnakan form.
-- **Otomatisasi Sistem:** Membuat trigger database untuk data default (`units_of_measure`) bagi pengguna baru, mencegah bug di masa depan.
+- **Arsitektur Data Cerdas:**
+    - Membuat RPC `get_pos_data` khusus yang secara efisien memuat produk berdasarkan **stok yang relevan di outlet terpilih**.
+    - Memperbaiki bug di mana semua produk tampil tanpa memperdulikan stok outlet.
+- **Kalkulasi Keranjang yang Akurat:**
+    - Mengimplementasikan logika perhitungan yang benar untuk **pajak inklusif dan eksklusif**.
+    - Mengintegrasikan sistem **diskon per-item dan per-transaksi** (nominal & persentase).
+    - Memastikan semua kalkulasi (subtotal, diskon, pajak, grand total) mengikuti urutan operasi matematika yang benar dan konsisten.
+- **Alur Pembayaran Profesional:**
+    - Membangun **Modal Pembayaran** untuk transaksi tunai.
+    - Fitur meliputi input terformat Rupiah, tombol uang cepat, dan kalkulator kembalian otomatis.
+- **Penyimpanan Data Transaksi yang Lengkap:**
+    - Memperbarui RPC `create_new_sale` secara iteratif untuk menyimpan semua detail transaksi, termasuk **pajak dan diskon** per item dan per transaksi, ke dalam database dengan benar.
+- **Perbaikan UX & Bug Kritis:**
+    - Memperbaiki penamaan produk varian menjadi format "Produk - Varian".
+    - Menambahkan filter kategori di halaman POS.
+    - Mengatasi berbagai bug terkait format angka dan state management (misal: diskon transaksi yang tidak ter-reset).
 
 ---
 
 ### **Peta Jalan & Rencana Pengembangan**
 
-#### **Fase 9: Fondasi Point of Sale (POS) - Sedang Berlangsung**
-Setelah memiliki modul produk dan inventaris yang solid, prioritas utama saat ini adalah membangun fungsionalitas inti dari aplikasi: **mesin kasir (POS)**. Fase ini akan menghubungkan semua modul yang ada dan memungkinkan alur kerja penjualan yang sebenarnya.
+#### **Fase 10: Pengalaman Pasca-Transaksi & CRM Dasar - Selanjutnya**
+Setelah alur transaksi dari pemilihan produk hingga pembayaran selesai, fokus selanjutnya adalah pada apa yang terjadi **setelah** transaksi berhasil dan mulai menghubungkannya dengan entitas bisnis lain.
 **Rencana Aksi:**
-- **UI Kasir:** Membangun antarmuka utama untuk kasir dengan pencarian produk dan manajemen keranjang belanja.
-- **Proses Checkout:** Membuat *server action* `createTransaction` untuk mencatat penjualan, pembayaran, dan yang terpenting, **mengurangi stok secara otomatis**.
-- **Logika Pengurangan Stok:** Membuat atau memanggil fungsi database yang andal untuk memastikan stok berkurang secara akurat setelah setiap transaksi.
+- **Struk Digital / Layar Pasca-Transaksi:**
+    - Mendesain dan membangun komponen modal atau halaman baru yang muncul setelah pembayaran berhasil.
+    - Menampilkan ringkasan transaksi (struk digital) yang jelas.
+    - Menyediakan tombol aksi seperti "Transaksi Baru" atau "Cetak Struk" (fungsionalitas cetak akan diimplementasikan nanti).
+- **Integrasi Pelanggan (CRM) di POS:**
+    - Menambahkan UI di halaman kasir untuk **memilih pelanggan** yang sudah ada atau **menambahkan pelanggan baru** dengan cepat.
+    - Memperbarui `create_new_sale` untuk menerima `customer_id` opsional dan menautkan transaksi ke pelanggan.
 
 ---
 
-#### **Ide untuk Masa Depan (Setelah POS Selesai)**
+#### **Ide untuk Masa Depan**
 
 1.  **Fitur Inventaris Cerdas:**
-    - **Alur Kerja Stok Opname Terpandu:** Membuat UI khusus untuk menyederhanakan proses stok opname.
-    - **Laporan Inventaris Lanjutan:** Peringatan Stok Menipis, Nilai Total Inventaris, dan Produk Lambat Terjual.
-
+    - Alur Kerja Stok Opname Terpandu & Laporan Inventaris Lanjutan.
 2.  **Modul Skala Lebih Besar:**
-    - **Manajemen Pemasok (Supplier)** & **Pesanan Pembelian (Purchase Order)**.
-    - **Laporan Penjualan Dasar:** Laporan harian, mingguan, dan bulanan.
-    - **Manajemen Pelanggan (CRM):** Menyimpan data pelanggan dan riwayat transaksi mereka.
+    - Manajemen Pemasok & Pesanan Pembelian.
+    - Laporan Penjualan Lanjutan & Manajemen Pelanggan (CRM) Penuh.

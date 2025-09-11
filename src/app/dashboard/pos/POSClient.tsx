@@ -1,64 +1,49 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect, useTransition } from 'react';
-import { Search, X, PlusCircle, MinusCircle, Trash2, CreditCard, ShoppingCart, Loader2 } from 'lucide-react';
+import { Search, X, PlusCircle, MinusCircle, Trash2, CreditCard, ShoppingCart, Loader2, Tag } from 'lucide-react';
 import Image from 'next/image';
 import { createTransaction, getProductsForOutlet } from './actions';
 import { PaymentModal } from './PaymentModal';
+import { DiscountModal } from './DiscountModal';
 
 // ========= TIPE DATA =========
-type Tax = {
-    id: string;
-    name: string;
-    rate: number;
-    is_inclusive: boolean;
-};
-
-type Product = {
-    id: string; // variant_id
-    name: string;
-    selling_price: number;
-    image_url: string | null;
-    track_stock: boolean;
-    stock_on_hand: number;
-    category_id: string | null;
-    taxes: Tax[] | null;
-};
-
+type Tax = { id: string; name: string; rate: number; is_inclusive: boolean; };
+type Product = { id: string; name: string; selling_price: number; image_url: string | null; track_stock: boolean; stock_on_hand: number; category_id: string | null; taxes: Tax[] | null; };
 type Outlet = { id: string; name: string; };
 type Category = { id: string; name: string; };
 
+type Discount = { type: 'percentage' | 'fixed'; value: number; };
 type CartItem = {
     id: string;
     name: string;
-    // selling_price is the final price from DB, inclusive or exclusive of tax
     selling_price: number;
     quantity: number;
     taxes: Tax[] | null;
+    discount: Discount; // Setiap item sekarang punya diskon sendiri
 };
 
-
 // ========= KOMPONEN UTAMA =========
-export function POSClient({ outlets, categories, userName }: {
-    outlets: Outlet[],
-    categories: Category[],
-    userName: string
-}) {
+export function POSClient({ outlets, categories, userName }: { outlets: Outlet[], categories: Category[], userName: string }) {
     // --- STATE MANAGEMENT ---
     const [products, setProducts] = useState<Product[]>([]);
     const [cart, setCart] = useState<CartItem[]>([]);
+    const [transactionDiscount, setTransactionDiscount] = useState<Discount>({ type: 'fixed', value: 0 });
 
     // Filter & UI States
     const [selectedOutlet, setSelectedOutlet] = useState<string>(outlets[0]?.id || '');
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
     const [searchTerm, setSearchTerm] = useState('');
+    
+    // Modal States
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [discountModalState, setDiscountModalState] = useState<{ isOpen: boolean; item?: CartItem; isTransactionDiscount?: boolean }>({ isOpen: false });
 
     // Loading States
     const [isProductLoading, startProductTransition] = useTransition();
     const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
 
-    // --- DATA FETCHING & SIDE EFFECTS ---
+    // --- DATA FETCHING ---
     useEffect(() => {
         if (selectedOutlet) {
             startProductTransition(async () => {
@@ -68,7 +53,16 @@ export function POSClient({ outlets, categories, userName }: {
         }
     }, [selectedOutlet]);
 
-    // --- MEMOIZED CALCULATIONS & FILTERING ---
+     // Efek untuk mereset diskon transaksi jika keranjang kosong
+     useEffect(() => {
+        if (cart.length === 0 && transactionDiscount.value > 0) {
+            setTransactionDiscount({ type: 'fixed', value: 0 });
+        }
+    }, [cart, transactionDiscount.value]);
+    // -------------------------
+
+
+    // --- FILTER PRODUK ---
     const filteredProducts = useMemo(() => {
         return products.filter(p => {
             const categoryMatch = selectedCategory === 'all' || p.category_id === selectedCategory;
@@ -77,48 +71,68 @@ export function POSClient({ outlets, categories, userName }: {
         });
     }, [products, selectedCategory, searchTerm]);
 
-    const { subtotal, totalTax, grandTotal } = useMemo(() => {
-        let calculatedSubtotal = 0;
-        let calculatedTotalTax = 0;
+    // --- KALKULASI TOTAL KERANJANG (LOGIKA BARU YANG SUDAH DIPERBAIKI) ---
+    const { subtotal, totalTax, grandTotal, totalDiscount } = useMemo(() => {
+        let preDiscountSubtotal = 0;
+        let finalTax = 0;
+        let finalDiscount = 0;
 
         cart.forEach(item => {
-            // 1. Determine the base price (price before any tax)
-            let base_price = item.selling_price;
+            // 1. Find original base price (price before any tax)
+            let original_base_price = item.selling_price;
             const inclusiveTax = item.taxes?.find(t => t.is_inclusive);
             if (inclusiveTax) {
-                // If tax is inclusive, the selling_price contains tax. We must extract the base price.
-                base_price = item.selling_price / (1 + inclusiveTax.rate / 100);
+                original_base_price = item.selling_price / (1 + inclusiveTax.rate / 100);
             }
-            
-            // The subtotal for the item is its base price * quantity
-            const itemSubtotal = base_price * item.quantity;
-            calculatedSubtotal += itemSubtotal;
+            preDiscountSubtotal += original_base_price * item.quantity;
 
-            // 2. Calculate the total tax for the item
-            let itemTotalTax = 0;
+            // 2. Calculate monetary value of item discount from base price
+            let itemDiscountAmount = 0;
+            if (item.discount.type === 'fixed') {
+                itemDiscountAmount = item.discount.value;
+            } else { // percentage
+                itemDiscountAmount = (original_base_price * item.quantity) * (item.discount.value / 100);
+            }
+            finalDiscount += itemDiscountAmount;
+
+            // 3. Calculate the new base price after item discount
+            const priceAfterItemDiscount = (original_base_price * item.quantity) - itemDiscountAmount;
+
+            // 4. Calculate tax on the new, discounted base price
+            let itemTaxAmount = 0;
             if (item.taxes) {
                 item.taxes.forEach(tax => {
-                    if (tax.is_inclusive) {
-                        // The tax amount is the difference between the selling price and the base price
-                        const taxAmount = (item.selling_price - base_price) * item.quantity;
-                        itemTotalTax += taxAmount;
-                    } else {
-                        // For exclusive tax, it's a percentage of the base price
-                        const taxAmount = base_price * (tax.rate / 100) * item.quantity;
-                        itemTotalTax += taxAmount;
-                    }
+                    // All tax is calculated from the price after item discount
+                    itemTaxAmount += priceAfterItemDiscount * (tax.rate / 100);
                 });
             }
-            calculatedTotalTax += itemTotalTax;
+            finalTax += itemTaxAmount;
         });
 
-        const calculatedGrandTotal = calculatedSubtotal + calculatedTotalTax;
+        // 5. Calculate transaction-level discount
+        const subtotalAfterItemDiscounts = preDiscountSubtotal - finalDiscount;
+        let transactionDiscountAmount = 0;
+        if (transactionDiscount.type === 'fixed') {
+            transactionDiscountAmount = transactionDiscount.value;
+        } else { // percentage
+            transactionDiscountAmount = subtotalAfterItemDiscounts * (transactionDiscount.value / 100);
+        }
+        
+        // 6. Adjust tax for transaction-level discount (for exclusive taxes)
+        const discountRatio = subtotalAfterItemDiscounts > 0 ? transactionDiscountAmount / subtotalAfterItemDiscounts : 0;
+        finalTax = finalTax * (1 - discountRatio);
+        
+        finalDiscount += transactionDiscountAmount;
 
-        return { subtotal: calculatedSubtotal, totalTax: calculatedTotalTax, grandTotal: calculatedGrandTotal };
-    }, [cart]);
+        // 7. Final calculation
+        const finalSubtotal = preDiscountSubtotal; // Subtotal reflects pre-discount price
+        const finalGrandTotal = (preDiscountSubtotal - finalDiscount) + finalTax;
+
+        return { subtotal: finalSubtotal, totalTax: finalTax, grandTotal: finalGrandTotal, totalDiscount: finalDiscount };
+    }, [cart, transactionDiscount]);
 
 
-    // --- HANDLER FUNCTIONS (ACTIONS) ---
+    // --- HANDLER FUNCTIONS ---
     const handleAddToCart = useCallback((product: Product) => {
         setCart(prevCart => {
             const existingItem = prevCart.find(item => item.id === product.id);
@@ -126,11 +140,8 @@ export function POSClient({ outlets, categories, userName }: {
                 return prevCart.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
             }
             return [...prevCart, {
-                id: product.id,
-                name: product.name,
-                selling_price: product.selling_price,
-                quantity: 1,
-                taxes: product.taxes
+                id: product.id, name: product.name, selling_price: product.selling_price,
+                quantity: 1, taxes: product.taxes, discount: { type: 'fixed', value: 0 }
             }];
         });
     }, []);
@@ -142,51 +153,45 @@ export function POSClient({ outlets, categories, userName }: {
         });
     }, []);
 
-    const handleOpenPaymentModal = () => {
-        if (cart.length === 0 || !selectedOutlet) {
-            alert("Keranjang kosong atau outlet belum dipilih.");
-            return;
+    const handleApplyDiscount = (discount: Discount) => {
+        if (discountModalState.isTransactionDiscount) {
+            setTransactionDiscount(discount);
+        } else if (discountModalState.item) {
+            setCart(cart.map(item => item.id === discountModalState.item!.id ? { ...item, discount } : item));
         }
-        setIsPaymentModalOpen(true);
     };
 
     const handleConfirmPayment = async () => {
         setIsCheckoutLoading(true);
-        
-        // **PERBAIKAN UTAMA ADA DI SINI**
-        // Sekarang kita mengirim data yang dibutuhkan oleh RPC v2
+        // This logic now mirrors the final calculation in useMemo
         const cartData = cart.map(item => {
-            // Kalkulasi ulang di sini untuk memastikan konsistensi
-            let base_price = item.selling_price;
-            const inclusiveTax = item.taxes?.find(t => t.is_inclusive);
-            if (inclusiveTax) {
-                base_price = item.selling_price / (1 + inclusiveTax.rate / 100);
+            let original_base_price = item.selling_price;
+            if (item.taxes?.find(t => t.is_inclusive)) {
+                original_base_price = item.selling_price / (1 + item.taxes.find(t => t.is_inclusive)!.rate / 100);
             }
-
-            let itemTotalTax = 0;
+            let itemDiscountAmount = item.discount.type === 'fixed' ? item.discount.value : (original_base_price * item.quantity) * (item.discount.value / 100);
+            const priceAfterItemDiscount = (original_base_price * item.quantity) - itemDiscountAmount;
+            
+            let itemTaxAmount = 0;
             if (item.taxes) {
                 item.taxes.forEach(tax => {
-                    if (tax.is_inclusive) {
-                        itemTotalTax += (item.selling_price - base_price) * item.quantity;
-                    } else {
-                        itemTotalTax += base_price * (tax.rate / 100) * item.quantity;
-                    }
+                    itemTaxAmount += priceAfterItemDiscount * (tax.rate / 100);
                 });
             }
-            
             return {
-                variant_id: item.id,
-                quantity: item.quantity,
-                unit_price: base_price,
-                tax_amount: itemTotalTax // Mengirim total pajak untuk baris item ini
+                variant_id: item.id, quantity: item.quantity, unit_price: original_base_price,
+                tax_amount: itemTaxAmount, discount_amount: itemDiscountAmount
             }
         });
+        
+        let transactionDiscountAmount = transactionDiscount.type === 'fixed' ? transactionDiscount.value : (subtotal - totalDiscount + transactionDiscount.value) * (transactionDiscount.value / 100);
 
         try {
-            const result = await createTransaction(cartData, selectedOutlet);
+            const result = await createTransaction(cartData, selectedOutlet, transactionDiscountAmount);
             if (result.success) {
                 alert('Transaksi berhasil!');
                 setCart([]);
+                setTransactionDiscount({ type: 'fixed', value: 0 });
                 setIsPaymentModalOpen(false);
             } else {
                 alert(`Transaksi Gagal: ${result.message}`);
@@ -202,65 +207,35 @@ export function POSClient({ outlets, categories, userName }: {
 
     return (
         <>
-            <PaymentModal
-                isOpen={isPaymentModalOpen}
-                onClose={() => setIsPaymentModalOpen(false)}
-                onSubmit={handleConfirmPayment}
-                grandTotal={grandTotal}
+            <PaymentModal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} onSubmit={handleConfirmPayment} grandTotal={grandTotal} />
+            <DiscountModal isOpen={discountModalState.isOpen} onClose={() => setDiscountModalState({ isOpen: false })} onApply={handleApplyDiscount}
+                itemName={discountModalState.item?.name} basePrice={discountModalState.isTransactionDiscount ? subtotal : (discountModalState.item?.selling_price || 0) * (discountModalState.item?.quantity || 0) }
             />
             <div className="flex flex-col md:flex-row h-[calc(100vh-100px)] gap-4 font-sans">
-                {/* ======================= MAIN CONTENT (PRODUCT GRID) ======================= */}
-                <div className="flex-grow flex flex-col bg-white dark:bg-gray-800/50 rounded-lg border dark:border-gray-800 p-4">
-                    {/* --- FILTERS --- */}
+                {/* Product Grid */}
+                 <div className="flex-grow flex flex-col bg-white dark:bg-gray-800/50 rounded-lg border dark:border-gray-800 p-4">
+                     {/* Filters */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                        <select
-                            value={selectedOutlet}
-                            onChange={(e) => setSelectedOutlet(e.target.value)}
-                            className="w-full p-2 border rounded-md bg-transparent"
-                            disabled={outlets.length === 0}
-                        >
+                         <select value={selectedOutlet} onChange={(e) => setSelectedOutlet(e.target.value)} className="w-full p-2 border rounded-md bg-transparent" disabled={outlets.length === 0}>
                             {outlets.length > 0 ? outlets.map(o => <option key={o.id} value={o.id}>{o.name}</option>) : <option>Tidak ada outlet</option>}
                         </select>
-                        <select
-                            value={selectedCategory}
-                            onChange={(e) => setSelectedCategory(e.target.value)}
-                            className="w-full p-2 border rounded-md bg-transparent"
-                            disabled={categories.length === 0}
-                        >
+                         <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="w-full p-2 border rounded-md bg-transparent" disabled={categories.length === 0}>
                             <option value="all">Semua Kategori</option>
                             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                         <div className="relative w-full">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Cari produk..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 border rounded-lg bg-transparent focus:outline-none focus:ring-2 focus:ring-teal-500"
-                            />
+                            <input type="text" placeholder="Cari produk..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border rounded-lg bg-transparent focus:outline-none focus:ring-2 focus:ring-teal-500" />
                             {searchTerm && <X onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 cursor-pointer" />}
                         </div>
                     </div>
-
-                    {/* --- PRODUCT LIST --- */}
+                     {/* Product List */}
                     <div className="flex-grow overflow-y-auto pr-2 relative">
-                        {isProductLoading && (
-                            <div className="absolute inset-0 bg-white/70 dark:bg-gray-800/70 flex justify-center items-center z-10">
-                                <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
-                            </div>
-                        )}
+                        {isProductLoading && <div className="absolute inset-0 bg-white/70 dark:bg-gray-800/70 flex justify-center items-center z-10"><Loader2 className="h-8 w-8 animate-spin text-teal-500"/></div>}
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                             {filteredProducts.map(product => (
                                 <div key={product.id} onClick={() => handleAddToCart(product)} className="border rounded-lg p-3 flex flex-col items-center cursor-pointer hover:shadow-lg transition-shadow bg-gray-50 dark:bg-gray-800">
-                                    <Image
-                                        src={product.image_url || '/Finako JPG.jpg'}
-                                        alt={product.name}
-                                        width={120}
-                                        height={120}
-                                        className="w-full h-28 object-cover rounded-md mb-2"
-                                        onError={(e) => { e.currentTarget.src = '/Finako JPG.jpg'; }}
-                                    />
+                                    <Image src={product.image_url || '/Finako JPG.jpg'} alt={product.name} width={120} height={120} className="w-full h-28 object-cover rounded-md mb-2" onError={(e) => { e.currentTarget.src = '/Finako JPG.jpg'; }}/>
                                     <h3 className="font-semibold text-sm text-center flex-grow">{product.name}</h3>
                                     <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(product.selling_price)}</p>
                                 </div>
@@ -269,46 +244,48 @@ export function POSClient({ outlets, categories, userName }: {
                     </div>
                 </div>
 
-                {/* ======================= RIGHT SIDEBAR (CART) ======================= */}
+                {/* Cart Sidebar */}
                 <div className="w-full md:w-96 flex-shrink-0 flex flex-col bg-white dark:bg-gray-800/50 rounded-lg border dark:border-gray-800 p-4">
                     <div className="flex justify-between items-center mb-4"><h2 className="text-xl font-bold">Keranjang</h2><span className="text-sm text-gray-500">Kasir: {userName}</span></div>
-
-                    {/* --- CART ITEMS --- */}
+                    {/* Cart Items */}
                     <div className="flex-grow overflow-y-auto border-t border-b dark:border-gray-700 py-2">
-                        {cart.length === 0 ? (
-                            <div className="text-center text-gray-500 my-10"><ShoppingCart className="mx-auto h-12 w-12 text-gray-400" /><p>Keranjang masih kosong</p></div>
-                        ) : (
-                            cart.map(item => (
-                                <div key={item.id} className="flex items-center justify-between py-2">
+                        {cart.length === 0 ? <div className="text-center text-gray-500 my-10"><ShoppingCart className="mx-auto h-12 w-12 text-gray-400"/><p>Keranjang masih kosong</p></div>
+                        : cart.map(item => (
+                            <div key={item.id} className="py-2">
+                                <div className="flex items-center justify-between">
                                     <div>
                                         <p className="font-semibold">{item.name}</p>
-                                        <p className="text-sm text-gray-500">{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(item.selling_price)}</p>
+                                        <p className="text-sm text-gray-500">{item.quantity} x {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(item.selling_price)}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <MinusCircle onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)} className="h-5 w-5 cursor-pointer text-red-500" />
-                                        <span>{item.quantity}</span>
-                                        <PlusCircle onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)} className="h-5 w-5 cursor-pointer text-green-500" />
-                                        <Trash2 onClick={() => handleUpdateQuantity(item.id, 0)} className="h-5 w-5 cursor-pointer text-gray-400 hover:text-red-600 ml-2" />
+                                        <button onClick={() => setDiscountModalState({ isOpen: true, item })} title="Beri diskon" className="p-1 text-gray-500 hover:text-teal-600"><Tag className="h-5 w-5"/></button>
+                                        <MinusCircle onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)} className="h-5 w-5 cursor-pointer text-red-500"/>
+                                        <span className="w-5 text-center">{item.quantity}</span>
+                                        <PlusCircle onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)} className="h-5 w-5 cursor-pointer text-green-500"/>
+                                        <Trash2 onClick={() => handleUpdateQuantity(item.id, 0)} className="h-5 w-5 cursor-pointer text-gray-400 hover:text-red-600 ml-2"/>
                                     </div>
                                 </div>
-                            ))
-                        )}
+                                {item.discount.value > 0 && <p className="text-xs text-red-500">Diskon: {item.discount.type === 'fixed' ? new Intl.NumberFormat('id-ID').format(item.discount.value) : `${item.discount.value}%`}</p>}
+                            </div>
+                        ))}
                     </div>
-
-                    {/* --- CART SUMMARY & CHECKOUT --- */}
+                    {/* Cart Summary */}
                     <div className="mt-auto pt-4">
                         <div className="space-y-1 text-sm mb-4">
                             <div className="flex justify-between"><p>Subtotal</p><p>{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(subtotal)}</p></div>
+                             <div className="flex justify-between items-center text-red-600">
+                                <button onClick={() => setDiscountModalState({ isOpen: true, isTransactionDiscount: true })} className="flex items-center gap-1 hover:underline">
+                                    <Tag className="h-4 w-4"/>
+                                    Diskon
+                                </button>
+                                <p>-{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(totalDiscount)}</p>
+                            </div>
                             <div className="flex justify-between"><p>Pajak</p><p>{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(totalTax)}</p></div>
                             <div className="border-t dark:border-gray-700 my-1"></div>
                             <div className="flex justify-between font-bold text-base"><p>Total</p><p>{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(grandTotal)}</p></div>
                         </div>
-                        <button
-                            onClick={handleOpenPaymentModal}
-                            disabled={cart.length === 0 || isCheckoutLoading || isProductLoading || !selectedOutlet}
-                            className="w-full flex items-center justify-center bg-teal-600 text-white font-bold py-3 rounded-lg hover:bg-teal-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
-                            <CreditCard className="mr-2" />
-                            {isCheckoutLoading ? 'Memproses...' : 'Bayar'}
+                        <button onClick={() => setIsPaymentModalOpen(true)} disabled={cart.length === 0 || isCheckoutLoading || isProductLoading || !selectedOutlet} className="w-full flex items-center justify-center bg-teal-600 text-white font-bold py-3 rounded-lg hover:bg-teal-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
+                            <CreditCard className="mr-2"/>{isCheckoutLoading ? 'Memproses...' : 'Bayar'}
                         </button>
                     </div>
                 </div>
