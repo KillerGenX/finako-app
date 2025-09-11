@@ -26,10 +26,11 @@ type TaxOption = { id: string; name: string; rate: number; };
 
 // ============== SUB-COMPONENTS ==============
 
-const ProductInfoCard = ({ product, variants, components, onEditInfo, onEditPrice, onDelete }: {
+const ProductInfoCard = ({ product, variants, components, compositeHpp, onEditInfo, onEditPrice, onDelete }: {
     product: Product;
     variants: Variant[];
     components: CompositeComponent[];
+    compositeHpp: number | null; // << BARU: Menerima HPP
     onEditInfo: () => void;
     onEditPrice: (v: Variant) => void;
     onDelete: () => void;
@@ -57,8 +58,26 @@ const ProductInfoCard = ({ product, variants, components, onEditInfo, onEditPric
     const priceRange = variants.length > 1 
         ? `${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(Math.min(...variants.map(v => v.selling_price)))} - ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(Math.max(...variants.map(v => v.selling_price)))}`
         : null;
-    const profit = singleVariantData && singleVariantData.cost_price ? singleVariantData.selling_price - singleVariantData.cost_price : null;
-    const margin = profit && singleVariantData && singleVariantData.selling_price > 0 ? (profit / singleVariantData.selling_price) * 100 : null;
+    
+    // Logika laba dan margin diperbarui untuk menangani semua kasus
+    const calculateProfitAndMargin = () => {
+        if (!singleVariantData) return { profit: null, margin: null };
+        
+        let costPrice = null;
+        if (product.product_type === 'SINGLE') {
+            costPrice = singleVariantData.cost_price;
+        } else if (product.product_type === 'COMPOSITE') {
+            costPrice = compositeHpp;
+        }
+
+        if (costPrice === null) return { profit: null, margin: null };
+
+        const profit = singleVariantData.selling_price - costPrice;
+        const margin = singleVariantData.selling_price > 0 ? (profit / singleVariantData.selling_price) * 100 : 0;
+        return { profit, margin };
+    };
+
+    const { profit, margin } = calculateProfitAndMargin();
 
     return (
         <div className="lg:col-span-1 p-6 bg-white dark:bg-gray-900/50 rounded-lg border flex flex-col text-center">
@@ -90,7 +109,8 @@ const ProductInfoCard = ({ product, variants, components, onEditInfo, onEditPric
                  {product.product_type === 'COMPOSITE' && singleVariantData && (
                     <>
                          <InfoRow icon={<CircleDollarSign size={16}/>} label="Harga Jual" value={new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(singleVariantData.selling_price)} />
-                         <InfoRow icon={<Landmark size={16}/>} label="HPP Otomatis" value={"Menunggu..."} />
+                         <InfoRow icon={<Landmark size={16}/>} label="HPP Otomatis" value={compositeHpp !== null ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(compositeHpp) : <Loader2 className="h-4 w-4 animate-spin" />} />
+                         {profit !== null && <InfoRow icon={<TrendingUp size={16}/>} label="Laba Kotor" value={`${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(profit)} (${margin?.toFixed(0)}%)`} />}
                          <InfoRow icon={<Tag size={16}/>} label="Jumlah Komponen" value={`${components.length} komponen`} />
                          <InfoRow icon={<Barcode size={16}/>} label="SKU" value={<span className="font-mono bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">{singleVariantData.sku || '-'}</span>} />
                     </>
@@ -148,6 +168,7 @@ export function ProductDetailClient({
     product, 
     initialVariants, 
     initialComponents,
+    compositeHpp, // << BARU: Menerima prop HPP
     categories, 
     brands, 
     taxes 
@@ -155,6 +176,7 @@ export function ProductDetailClient({
     product: Product; 
     initialVariants: Variant[]; 
     initialComponents: CompositeComponent[];
+    compositeHpp: number | null; // << BARU
     categories: SelectOption[];
     brands: SelectOption[]; 
     taxes: TaxOption[];
@@ -215,6 +237,7 @@ export function ProductDetailClient({
                     product={product} 
                     variants={initialVariants} 
                     components={initialComponents}
+                    compositeHpp={compositeHpp} // << BARU: Passing ke Info Card
                     onEditInfo={handleOpenTemplateModal}
                     onEditPrice={handleOpenVariantModal}
                     onDelete={() => setDeleteConfirmOpen(true)}
@@ -236,7 +259,7 @@ export function ProductDetailClient({
                             <div className="sm:flex sm:items-start">
                                 <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
                                     <AlertTriangle className="h-6 w-6 text-red-600" />
-                                </div>
+                                 </div>
                                 <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
                                     <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100">Hapus Produk</h3>
                                     <div className="mt-2">

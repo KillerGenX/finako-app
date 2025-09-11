@@ -16,6 +16,7 @@ export type CompositeComponent = {
     }
 };
 
+// Menambahkan composite_hpp ke tipe data
 type ProductDetailsData = {
     id: string;
     name: string;
@@ -27,14 +28,12 @@ type ProductDetailsData = {
     product_tax_rates: { tax_rate_id: string }[];
     variants?: Variant[];
     components?: CompositeComponent[];
+    composite_hpp?: number; // << BARU: Field untuk HPP
 };
 
 
 export default async function ProductDetailPage({ params }: { params: { templateId: string } }) {
     const { templateId } = await params;
-
-    // FIX: The `cookies()` function returns a promise-like object, but we can pass it directly.
-    // The createServerClient is designed to handle this. The previous manual implementation was incorrect.
     const cookieStore = await cookies();
     
     const supabase = createServerClient(
@@ -46,22 +45,10 @@ export default async function ProductDetailPage({ params }: { params: { template
                     return cookieStore.get(name)?.value
                 },
                 set(name: string, value: string, options: CookieOptions) {
-                    try {
-                        cookieStore.set({ name, value, ...options })
-                    } catch (error) {
-                        // The `set` method was called from a Server Component.
-                        // This can be ignored if you have middleware refreshing
-                        // user sessions.
-                    }
+                    try { cookieStore.set({ name, value, ...options }) } catch (error) {}
                 },
                 remove(name: string, options: CookieOptions) {
-                    try {
-                        cookieStore.set({ name, value: '', ...options })
-                    } catch (error) {
-                        // The `delete` method was called from a Server Component.
-                        // This can be ignored if you have middleware refreshing
-                        // user sessions.
-                    }
+                    try { cookieStore.set({ name, value: '', ...options }) } catch (error) {}
                 },
             },
         }
@@ -74,6 +61,7 @@ export default async function ProductDetailPage({ params }: { params: { template
     if (!member) notFound();
     const orgId = member.organization_id;
 
+    // Panggilan RPC ini sekarang akan mengembalikan 'composite_hpp' jika tipenya COMPOSITE
     const { data: productDetails, error } = await supabase
         .rpc('get_product_details', { 
             p_product_id: templateId, 
@@ -96,11 +84,13 @@ export default async function ProductDetailPage({ params }: { params: { template
         taxesPromise
     ]);
 
+    // Sekarang kita passing composite_hpp ke ProductDetailClient
     return (
         <ProductDetailClient 
             product={productDetails}
             initialVariants={productDetails.variants || []}
             initialComponents={productDetails.components || []}
+            compositeHpp={productDetails.composite_hpp || null} // << BARU: Passing HPP
             categories={categoriesResult.data || []}
             brands={brandsResult.data || []}
             taxes={taxesResult.data || []}
