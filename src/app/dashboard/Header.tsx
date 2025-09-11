@@ -41,7 +41,6 @@ export default function Header({ userInitials, toggleSidebar, notificationCount:
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            // ▼▼▼ TYPO DIPERBAIKI DI SINI ▼▼▼
             if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
                 setIsUserMenuOpen(false);
             }
@@ -66,20 +65,31 @@ export default function Header({ userInitials, toggleSidebar, notificationCount:
         const willOpen = !isNotificationMenuOpen;
         setIsNotificationMenuOpen(willOpen);
 
-        if (willOpen && notificationCount > 0) {
+        if (willOpen) {
             startTransition(async () => {
+                // Pertama, dapatkan sesi pengguna saat ini
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) {
+                    setNotifications([]);
+                    return;
+                }
+
+                // Ambil notifikasi HANYA untuk user_id yang sedang login
                 const { data } = await supabase
                     .from('user_notifications')
                     .select('*')
+                    .eq('user_id', user.id) // << FIX: Filter keamanan ditambahkan
                     .eq('is_read', false)
                     .order('created_at', { ascending: false });
+                
                 setNotifications(data || []);
                 
-                await markNotificationsAsRead();
-                setNotificationCount(0);
+                // Hanya jalankan jika ada notifikasi yang belum dibaca
+                if (notificationCount > 0) {
+                    await markNotificationsAsRead();
+                    setNotificationCount(0);
+                }
             });
-        } else if (willOpen) {
-             setNotifications([]);
         }
     };
 
