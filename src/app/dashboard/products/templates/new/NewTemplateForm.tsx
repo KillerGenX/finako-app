@@ -4,7 +4,7 @@ import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { createProductTemplate, FormState } from '../../actions'; 
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Info, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Loader2, Info, ExternalLink, Package, Boxes, Puzzle, ConciergeBell } from 'lucide-react';
 import { ImageUpload } from '../../ImageUpload';
 import { useState } from 'react';
 
@@ -30,11 +30,12 @@ const FormInput = ({ id, label, type, required, error, step, placeholder }: { id
 const FormTextarea = ({ id, label, error }: { id: string, label: string, error?: string[] }) => ( <div> <label htmlFor={id} className="block text-sm font-medium">{label}</label> <textarea id={id} name={id} rows={3} className={`mt-1 block w-full p-2 border rounded bg-transparent ${error ? 'border-red-500' : 'border-gray-300'}`}></textarea> {error && <p className="mt-1 text-xs text-red-500">{error.join(', ')}</p>} </div> );
 const FormSelect = ({ id, label, options, error, manageLink }: { id: string, label: string, options: SelectOption[], error?: string[], manageLink: { href: string, text: string } }) => ( <div> <div className="flex justify-between items-center"> <label htmlFor={id} className="block text-sm font-medium">{label}</label> <Link href={manageLink.href} target="_blank" className="text-xs text-teal-600 hover:underline flex items-center gap-1"> {manageLink.text} <ExternalLink size={12} /> </Link> </div> <select id={id} name={id} className={`mt-1 block w-full p-2 border rounded bg-transparent ${error ? 'border-red-500' : 'border-gray-300'}`}> <option value="">-- Opsional --</option> {options.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)} </select> {error && <p className="mt-1 text-xs text-red-500">{error.join(', ')}</p>} </div> );
 
-const productTypes: { key: ProductType, label: string, disabled: boolean, comingSoon: boolean }[] = [
-    { key: 'SINGLE', label: 'Produk Tunggal', disabled: false, comingSoon: false },
-    { key: 'VARIANT', label: 'Produk dengan Varian', disabled: false, comingSoon: false },
-    { key: 'COMPOSITE', label: 'Produk Komposit', disabled: false, comingSoon: false },
-    { key: 'SERVICE', label: 'Jasa', disabled: true, comingSoon: true }
+// Memperbarui productTypes dengan ikon dan deskripsi
+const productTypes: { key: ProductType, label: string, description: string, icon: React.ReactNode, disabled: boolean, comingSoon: boolean }[] = [
+    { key: 'SINGLE', label: 'Produk Tunggal', description: 'Item individual, seperti buku atau minuman kaleng.', icon: <Package size={20} />, disabled: false, comingSoon: false },
+    { key: 'VARIANT', label: 'Produk Bervarian', description: 'Produk dengan banyak pilihan, seperti kaos berbagai ukuran.', icon: <Boxes size={20} />, disabled: false, comingSoon: false },
+    { key: 'COMPOSITE', label: 'Produk Komposit', description: 'Produk dari beberapa komponen, seperti resep atau hamper.', icon: <Puzzle size={20} />, disabled: false, comingSoon: false },
+    { key: 'SERVICE', label: 'Jasa', description: 'Layanan yang ditawarkan, seperti potong rambut atau konsultasi.', icon: <ConciergeBell size={20} />, disabled: false, comingSoon: false }
 ];
 
 export function NewTemplateForm({ categories, brands, taxes }: { categories: SelectOption[], brands: SelectOption[], taxes: TaxOption[] }) {
@@ -56,7 +57,7 @@ export function NewTemplateForm({ categories, brands, taxes }: { categories: Sel
         },
         'SERVICE': {
             title: 'Buat Jasa Baru',
-            description: 'Isi informasi untuk layanan atau jasa yang Anda tawarkan.'
+            description: 'Isi informasi untuk layanan atau jasa yang Anda tawarkan. Stok tidak akan dilacak untuk jasa.'
         }
     }
 
@@ -78,21 +79,27 @@ export function NewTemplateForm({ categories, brands, taxes }: { categories: Sel
                                 {productTypes.map(typeInfo => (
                                     <label 
                                         key={typeInfo.key} 
-                                        className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer ${productType === typeInfo.key ? 'bg-teal-50 border-teal-500' : 'border-gray-300'} ${typeInfo.disabled ? 'cursor-not-allowed bg-gray-100 text-gray-400' : ''}`}
+                                        className={`flex flex-col p-4 border rounded-lg cursor-pointer ${productType === typeInfo.key ? 'bg-teal-50 border-teal-500' : 'border-gray-300'} ${typeInfo.disabled ? 'cursor-not-allowed bg-gray-100 text-gray-400' : ''}`}
                                     >
-                                        <div className="flex items-center">
-                                            <input 
-                                                type="radio" 
-                                                name="product_type_selection" 
-                                                value={typeInfo.key}
-                                                checked={productType === typeInfo.key}
-                                                onChange={(e) => setProductType(e.target.value as ProductType)}
-                                                className="form-radio text-teal-600"
-                                                disabled={typeInfo.disabled}
-                                            />
-                                            <span className="ml-3 font-medium">{typeInfo.label}</span>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center">
+                                                <input 
+                                                    type="radio" 
+                                                    name="product_type_selection" 
+                                                    value={typeInfo.key}
+                                                    checked={productType === typeInfo.key}
+                                                    onChange={(e) => setProductType(e.target.value as ProductType)}
+                                                    className="form-radio h-5 w-5 text-teal-600"
+                                                    disabled={typeInfo.disabled}
+                                                />
+                                                <div className="ml-3 flex items-center gap-2">
+                                                    {typeInfo.icon}
+                                                    <span className="font-medium">{typeInfo.label}</span>
+                                                </div>
+                                            </div>
+                                            {typeInfo.comingSoon && <span className="text-xs font-semibold bg-gray-200 text-gray-600 px-2 py-1 rounded-full">Segera Hadir</span>}
                                         </div>
-                                        {typeInfo.comingSoon && <span className="text-xs font-semibold bg-gray-200 text-gray-600 px-2 py-1 rounded-full">Segera Hadir</span>}
+                                        <p className="text-sm text-gray-500 mt-2 ml-8">{typeInfo.description}</p>
                                     </label>
                                 ))}
                              </div>
@@ -101,7 +108,7 @@ export function NewTemplateForm({ categories, brands, taxes }: { categories: Sel
                         <div className="p-6 bg-white dark:bg-gray-900/50 rounded-lg border dark:border-gray-800">
                             <h2 className="text-lg font-semibold mb-4">Informasi Dasar</h2>
                             <div className="space-y-4">
-                                <FormInput id="name" label="Nama Produk" type="text" required error={state.errors?.name} />
+                                <FormInput id="name" label={productType === 'SERVICE' ? "Nama Jasa" : "Nama Produk"} type="text" required error={state.errors?.name} />
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                      <FormSelect id="category_id" label="Kategori" options={categories} error={state.errors?.category_id} manageLink={{href: "/dashboard/categories", text: "Kelola Kategori"}} />
                                      <FormSelect id="brand_id" label="Merek" options={brands} error={state.errors?.brand_id} manageLink={{href: "/dashboard/brands", text: "Kelola Merek"}} />
@@ -131,11 +138,22 @@ export function NewTemplateForm({ categories, brands, taxes }: { categories: Sel
                                 </div>
                             </div>
                         )}
+                        
+                        {productType === 'SERVICE' && (
+                           <div className="p-6 bg-white dark:bg-gray-900/50 rounded-lg border dark:border-gray-800 transition-all duration-300 ease-in-out">
+                                <h2 className="text-lg font-semibold mb-4">Harga</h2>
+                                <div className="space-y-4">
+                                    <FormInput id="selling_price" label="Harga Jasa" type="number" required placeholder="Contoh: 150000" step="0.01" error={state.errors?.selling_price} />
+                                    <FormInput id="sku" label="SKU (Service Keeping Unit)" placeholder="Opsional" type="text" error={state.errors?.sku} />
+                                    <input type="hidden" name="track_stock" value="off" />
+                                </div>
+                            </div>
+                        )}
 
                          <div className="p-6 bg-white dark:bg-gray-900/50 rounded-lg border dark:border-gray-800">
                             <h2 className="text-lg font-semibold mb-4">Pajak</h2>
                             <div className="flex justify-between items-center">
-                                <label className="block text-sm font-medium">Pajak yang berlaku untuk produk ini</label>
+                                <label className="block text-sm font-medium">Pajak yang berlaku</label>
                                 <Link href="/dashboard/taxes" target="_blank" className="text-xs text-teal-600 hover:underline flex items-center gap-1">Kelola Pajak <ExternalLink size={12} /></Link>
                             </div>
                             <div className="mt-2 space-y-2">

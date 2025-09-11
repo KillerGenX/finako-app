@@ -11,7 +11,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
 const BaseProductSchema = z.object({
-    name: z.string().min(3, { message: "Nama produk harus diisi." }),
+    name: z.string().min(3, { message: "Nama produk/jasa harus diisi." }),
     description: z.string().optional(),
     category_id: z.string().uuid().nullable().optional(),
     brand_id: z.string().uuid().nullable().optional(),
@@ -111,7 +111,8 @@ async function updateProductTaxes(supabase: any, productId: string, taxRateIds: 
 
 // Server Actions
 export async function createProductTemplate(prevState: FormState, formData: FormData): Promise<FormState> {
-    const productType = formData.get('product_type') as 'SINGLE' | 'VARIANT' | 'COMPOSITE';
+    const productType = formData.get('product_type') as 'SINGLE' | 'VARIANT' | 'COMPOSITE' | 'SERVICE';
+    let redirectUrl: string | null = null;
 
     try {
         const { supabase, organization_id } = await getSupabaseAndOrgId();
@@ -126,13 +127,15 @@ export async function createProductTemplate(prevState: FormState, formData: Form
         const fullRawData = { ...rawData, image_url: imageFile, tax_rate_ids: taxIds, track_stock: rawData.track_stock === 'on' };
 
         const PricedSchemaWithImage = PricedProductSchema.extend({ image_url: ImageSchema.shape.image_url });
+        // FIX: Corrected self-referencing typo
         const BaseSchemaWithImage = BaseProductSchema.extend({ image_url: ImageSchema.shape.image_url });
         
-        if (productType === 'SINGLE' || productType === 'COMPOSITE') {
+        if (productType === 'SINGLE' || productType === 'COMPOSITE' || productType === 'SERVICE') {
             const validatedFields = PricedSchemaWithImage.safeParse(fullRawData);
             if (!validatedFields.success) return { message: "Validasi gagal.", errors: validatedFields.error.flatten().fieldErrors };
             
-            const { name, description, category_id, brand_id, tax_rate_ids: validatedTaxIds, selling_price, sku: rawSku, track_stock } = validatedFields.data;
+            let { name, description, category_id, brand_id, tax_rate_ids: validatedTaxIds, selling_price, sku: rawSku } = validatedFields.data;
+            let track_stock = productType === 'SERVICE' ? false : validatedFields.data.track_stock;
             const cost_price = productType === 'SINGLE' ? validatedFields.data.cost_price : 0;
             const newImageUrl = await handleImageUpload(supabase, organization_id, imageFile);
 
@@ -162,13 +165,12 @@ export async function createProductTemplate(prevState: FormState, formData: Form
                 throw new Error(`Gagal menyimpan varian produk: ${variantError.message}`);
             }
             
-            if (productType === 'SINGLE') {
-                revalidatePath('/dashboard/products');
-                redirect('/dashboard/products');
-            } else {
-                redirect(`/dashboard/products/templates/${templateId}`);
+            if (productType === 'SINGLE' || productType === 'SERVICE') {
+                redirectUrl = '/dashboard/products';
+            } else { // COMPOSITE
+                redirectUrl = `/dashboard/products/templates/${templateId}`;
             }
-        } else {
+        } else { // VARIANT
             const validatedFields = BaseSchemaWithImage.safeParse(fullRawData);
             if (!validatedFields.success) return { message: "Validasi gagal.", errors: validatedFields.error.flatten().fieldErrors };
             
@@ -186,12 +188,17 @@ export async function createProductTemplate(prevState: FormState, formData: Form
             const templateId = product.id;
             await updateProductTaxes(supabase, templateId, validatedTaxIds);
             
-            redirect(`/dashboard/products/templates/${templateId}`);
+            redirectUrl = `/dashboard/products/templates/${templateId}`;
         }
     } catch (e: any) {
         return { message: e.message, errors: {} };
     }
+
     revalidatePath('/dashboard/products');
+    if (redirectUrl) {
+        redirect(redirectUrl);
+    }
+
     return { message: 'success' };
 }
 
