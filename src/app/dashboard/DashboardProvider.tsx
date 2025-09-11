@@ -3,7 +3,7 @@
 import { useState, createContext, useContext, ReactNode, Fragment } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, ShoppingCart, Package, Users, LineChart, Settings, ChevronLeft, CreditCard, Folder, Store } from 'lucide-react';
+import { Home, ShoppingCart, Package, Users, LineChart, Settings, ChevronLeft, CreditCard, Folder, Store, LayoutDashboard } from 'lucide-react';
 import Header from './Header'; 
 
 const SidebarContext = createContext({
@@ -22,7 +22,8 @@ const Sidebar = () => {
             { href: "/dashboard", icon: Home, label: "Dashboard" }
         ],
         [
-            { href: "/dashboard/transactions", icon: ShoppingCart, label: "Transaksi" },
+           
+            { href: "/dashboard/pos", icon: ShoppingCart, label: "Transaksi" },
             { href: "/dashboard/products", icon: Package, label: "Produk" },
             { href: "/dashboard/categories", icon: Folder, label: "Kategori" },
             { href: "/dashboard/customers", icon: Users, label: "Pelanggan" },

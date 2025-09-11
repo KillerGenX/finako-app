@@ -48,7 +48,7 @@ const modules = [
         icon: ShoppingCart,
         title: "Transaksi & Penjualan",
         description: "Jalankan Point of Sale (POS), catat transaksi, dan kelola pembayaran dari pelanggan.",
-        href: "#"
+        href: "/dashboard/pos"
     },
     {
         icon: Users,
