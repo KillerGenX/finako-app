@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useOptimistic, useCallback } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, PlusCircle, Edit, Trash2, MoreHorizontal, Warehouse, Loader2, AlertTriangle, Tag, Package, Boxes, Barcode, TrendingUp, Landmark, CircleDollarSign } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Edit, Trash2, MoreHorizontal, Warehouse, Loader2, AlertTriangle, Tag, Package, Boxes, Barcode, TrendingUp, Landmark, CircleDollarSign, ConciergeBell } from 'lucide-react';
 import { AddEditVariantModal } from './AddEditVariantModal';
 import { EditTemplateModal } from './EditTemplateModal';
 import { CompositeManager, CompositeComponent } from './CompositeManager';
@@ -30,7 +30,7 @@ const ProductInfoCard = ({ product, variants, components, compositeHpp, onEditIn
     product: Product;
     variants: Variant[];
     components: CompositeComponent[];
-    compositeHpp: number | null; // << BARU: Menerima HPP
+    compositeHpp: number | null;
     onEditInfo: () => void;
     onEditPrice: (v: Variant) => void;
     onDelete: () => void;
@@ -41,7 +41,7 @@ const ProductInfoCard = ({ product, variants, components, compositeHpp, onEditIn
         SINGLE: { text: 'Produk Tunggal', color: 'bg-teal-500', icon: <Package size={14} /> },
         VARIANT: { text: 'Produk Bervarian', color: 'bg-sky-500', icon: <Boxes size={14} /> },
         COMPOSITE: { text: 'Produk Komposit', color: 'bg-orange-500', icon: <Tag size={14} /> },
-        SERVICE: { text: 'Jasa', color: 'bg-purple-500', icon: <Tag size={14} /> },
+        SERVICE: { text: 'Jasa', color: 'bg-purple-500', icon: <ConciergeBell size={14} /> },
     };
 
     const InfoRow = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: React.ReactNode }) => (
@@ -59,7 +59,6 @@ const ProductInfoCard = ({ product, variants, components, compositeHpp, onEditIn
         ? `${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(Math.min(...variants.map(v => v.selling_price)))} - ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(Math.max(...variants.map(v => v.selling_price)))}`
         : null;
     
-    // Logika laba dan margin diperbarui untuk menangani semua kasus
     const calculateProfitAndMargin = () => {
         if (!singleVariantData) return { profit: null, margin: null };
         
@@ -99,6 +98,12 @@ const ProductInfoCard = ({ product, variants, components, compositeHpp, onEditIn
                         <InfoRow icon={<Barcode size={16}/>} label="SKU" value={<span className="font-mono bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">{singleVariantData.sku || '-'}</span>} />
                     </>
                 )}
+                {product.product_type === 'SERVICE' && singleVariantData && (
+                    <>
+                        <InfoRow icon={<CircleDollarSign size={16}/>} label="Harga Jasa" value={new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(singleVariantData.selling_price)} />
+                        <InfoRow icon={<Barcode size={16}/>} label="SKU" value={<span className="font-mono bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">{singleVariantData.sku || '-'}</span>} />
+                    </>
+                )}
                  {product.product_type === 'VARIANT' && (
                     <>
                         <InfoRow icon={<Boxes size={16}/>} label="Jumlah Varian" value={`${variants.length} varian`} />
@@ -119,7 +124,7 @@ const ProductInfoCard = ({ product, variants, components, compositeHpp, onEditIn
 
             <div className="mt-4 flex flex-wrap justify-center gap-4 pt-4 border-t">
                 <button onClick={onEditInfo} className="text-sm text-teal-600 hover:underline">Edit Info</button>
-                {(product.product_type === 'SINGLE' || product.product_type === 'COMPOSITE') && singleVariantData && (
+                {(product.product_type === 'SINGLE' || product.product_type === 'COMPOSITE' || product.product_type === 'SERVICE') && singleVariantData && (
                      <button onClick={() => onEditPrice(singleVariantData)} className="text-sm text-teal-600 hover:underline">Edit Harga/SKU</button>
                 )}
                 <button onClick={onDelete} className="text-sm text-red-600 hover:underline">Hapus</button>
@@ -168,7 +173,7 @@ export function ProductDetailClient({
     product, 
     initialVariants, 
     initialComponents,
-    compositeHpp, // << BARU: Menerima prop HPP
+    compositeHpp,
     categories, 
     brands, 
     taxes 
@@ -176,7 +181,7 @@ export function ProductDetailClient({
     product: Product; 
     initialVariants: Variant[]; 
     initialComponents: CompositeComponent[];
-    compositeHpp: number | null; // << BARU
+    compositeHpp: number | null;
     categories: SelectOption[];
     brands: SelectOption[]; 
     taxes: TaxOption[];
@@ -198,6 +203,8 @@ export function ProductDetailClient({
         switch(product.product_type) {
             case 'COMPOSITE':
                 return <CompositeManager product={product} initialComponents={initialComponents} />;
+            // FIX: Group SERVICE with SINGLE to use the same detail view
+            case 'SERVICE':
             case 'SINGLE':
                 if (!singleVariantData) return <div className="text-center py-12">Data produk tidak lengkap.</div>;
                 return <SingleVariantEditor variant={singleVariantData} productId={product.id} />;
@@ -237,7 +244,7 @@ export function ProductDetailClient({
                     product={product} 
                     variants={initialVariants} 
                     components={initialComponents}
-                    compositeHpp={compositeHpp} // << BARU: Passing ke Info Card
+                    compositeHpp={compositeHpp}
                     onEditInfo={handleOpenTemplateModal}
                     onEditPrice={handleOpenVariantModal}
                     onDelete={() => setDeleteConfirmOpen(true)}
