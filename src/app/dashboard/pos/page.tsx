@@ -20,10 +20,21 @@ export default async function POSPage() {
         redirect('/login');
     }
 
-    const { data: member } = await supabase.from('organization_members').select('organization_id').eq('user_id', user.id).single();
-    if (!member) {
-        return <p className="p-4">Anda tidak terdaftar di organisasi manapun.</p>;
+    // Ambil data member dan profil dalam satu query untuk efisiensi
+    const memberPromise = supabase.from('organization_members').select('organization_id').eq('user_id', user.id).single();
+    const profilePromise = supabase.from('profiles').select('full_name').eq('id', user.id).single();
+
+    const [memberResult, profileResult] = await Promise.all([memberPromise, profilePromise]);
+
+    const { data: member, error: memberError } = memberResult;
+    if (memberError || !member) {
+        return <p className="p-4">Anda tidak terdaftar di organisasi manapun atau profil Anda tidak ditemukan.</p>;
     }
+    
+    const { data: profile } = profileResult;
+    
+    // Tentukan nama kasir: gunakan nama lengkap jika ada, jika tidak, gunakan email.
+    const cashierName = profile?.full_name || user.email || 'Kasir';
 
     const orgId = member.organization_id;
 
@@ -47,7 +58,7 @@ export default async function POSPage() {
         <POSClient 
             outlets={outlets} 
             categories={categories}
-            userName={user.email || 'Kasir'} 
+            userName={cashierName} // Kirim nama yang benar ke client component
         />
     );
 }
