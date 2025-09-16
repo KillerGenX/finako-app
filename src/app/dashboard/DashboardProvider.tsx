@@ -3,7 +3,7 @@
 import { useState, createContext, useContext, ReactNode, Fragment } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, ShoppingCart, Package, Users, LineChart, Settings, ChevronLeft, CreditCard, Folder, Store, LayoutDashboard } from 'lucide-react';
+import { Home, ShoppingCart, Package, Users, LineChart, Settings, ChevronLeft, CreditCard, Folder, Store, History } from 'lucide-react'; // Impor ikon History
 import Header from './Header'; 
 
 const SidebarContext = createContext({
@@ -24,6 +24,7 @@ const Sidebar = () => {
         [
            
             { href: "/dashboard/pos", icon: ShoppingCart, label: "Transaksi" },
+            { href: "/dashboard/history", icon: History, label: "Riwayat" }, // Tambahkan menu Riwayat di sini
             { href: "/dashboard/products", icon: Package, label: "Produk" },
             { href: "/dashboard/categories", icon: Folder, label: "Kategori" },
             { href: "/dashboard/customers", icon: Users, label: "Pelanggan" },
