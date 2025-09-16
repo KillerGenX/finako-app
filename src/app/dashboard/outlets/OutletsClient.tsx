@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
+import Link from 'next/link'; // Import Link
 import { createOutlet, updateOutlet, deleteOutlet, OutletFormState } from './actions';
 import { Edit, Trash2, PlusCircle, X, Loader2, Info, Store, Warehouse } from 'lucide-react';
 
@@ -149,7 +150,11 @@ export function OutletsClient({ allOutlets }: { allOutlets: Outlet[] }) {
                             <tbody className="divide-y dark:divide-gray-700">
                                 {allOutlets.map((outlet) => (
                                     <tr key={outlet.id}>
-                                        <td className="px-6 py-4 font-medium">{outlet.name}</td>
+                                        <td className="px-6 py-4 font-medium">
+                                            <Link href={`/dashboard/outlets/${outlet.id}`} className="hover:underline text-teal-600">
+                                                {outlet.name}
+                                            </Link>
+                                        </td>
                                         <td className="px-6 py-4 text-sm text-gray-500">{outlet.address || '-'}</td>
                                         <td className="px-6 py-4 text-sm text-gray-500">
                                             <div className="flex flex-wrap gap-1">

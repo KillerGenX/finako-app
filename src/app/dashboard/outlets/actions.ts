@@ -11,7 +11,6 @@ const OutletSchema = z.object({
     name: z.string().min(3, { message: "Nama outlet harus diisi (minimal 3 karakter)." }),
     address: z.string().optional(),
     phone_number: z.string().optional(),
-    // For now, we'll handle location_types as a simple text array, can be enhanced later
     location_types: z.array(z.string()).min(1, { message: "Pilih setidaknya satu tipe lokasi." }),
 });
 
@@ -74,7 +73,7 @@ export async function createOutlet(prevState: OutletFormState, formData: FormDat
     }
     
     revalidatePath('/dashboard/outlets');
-    return { message: "success" }; // Return success to close modal
+    return { message: "success" }; 
 }
 
 export async function updateOutlet(prevState: OutletFormState, formData: FormData): Promise<OutletFormState> {
@@ -112,9 +111,13 @@ export async function updateOutlet(prevState: OutletFormState, formData: FormDat
     return { message: "success" };
 }
 
-export async function deleteOutlet(formData: FormData): Promise<{ message: string }> {
+// PERBAIKAN: Mengubah return type menjadi Promise<void> dan menghapus return value
+export async function deleteOutlet(formData: FormData): Promise<void> {
     const outletId = formData.get('outlet_id') as string;
-    if (!outletId) return { message: "ID Outlet tidak ditemukan." };
+    if (!outletId) {
+        console.error("ID Outlet tidak ditemukan.");
+        return;
+    }
 
     try {
         const { supabase, organization_id } = await getSupabaseAndOrgId();
@@ -124,12 +127,17 @@ export async function deleteOutlet(formData: FormData): Promise<{ message: strin
             .eq('id', outletId)
             .eq('organization_id', organization_id);
 
-        if (error) throw new Error(`Gagal menghapus outlet: ${error.message}`);
+        if (error) {
+            // Melempar error agar bisa ditangani oleh error boundary jika perlu
+            throw new Error(`Gagal menghapus outlet: ${error.message}`);
+        }
 
     } catch (e: any) {
-        return { message: e.message };
+        console.error(e.message);
+        // Di sini kita bisa melempar ulang error jika ingin menampilkannya di UI
+        // Untuk saat ini, kita hanya log error di server
+        return;
     }
 
     revalidatePath('/dashboard/outlets');
-    return { message: "Outlet berhasil dihapus." };
 }
