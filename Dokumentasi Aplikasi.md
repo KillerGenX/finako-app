@@ -1,6 +1,6 @@
 # Dokumentasi Aplikasi Finako
 
-Versi: 1.9
+Versi: 2.0
 Tanggal Pembaruan: [Tanggal Hari Ini]
 
 ---
@@ -9,58 +9,51 @@ Tanggal Pembaruan: [Tanggal Hari Ini]
 
 Finako adalah aplikasi Point of Sale (POS) berbasis SaaS (Software as a Service) yang dirancang untuk UMKM. Visi utamanya adalah menyediakan solusi manajemen bisnis yang terintegrasi, mulai dari manajemen produk dan inventaris, transaksi penjualan, hingga akuntansi dan SDM, dalam satu platform yang mudah digunakan.
 
-**Nama Aplikasi**: Finako App
-**VISI Finako** Aplikasi Super App,Menggabungkan Majoo/Moka Pos,Accurate/Zahir dan Mekari Talenta untuk UMKM Indonesia dengan Harga yang murah
-**Brand Color**: Green Teal
-**Bahasa Pemrograman**: TypeScript
-**Framework Frontend**: Next.js (dengan App Router)
-**Backend**: Supabase (REST API, Edge Functions, Database Functions/RPC)
-**Styling & UI**: Tailwind CSS Terbaru + Komponen bergaya Shadcn/UI
-**Validasi Data**: Zod
-**Pendekatan**: Mobile-First dan PWA
-
 ---
 
 ### **Fase Pengembangan**
 
-#### **Fase 1-10: Fondasi, POS, & Arsitektur Modular - Selesai**
-Fase-fase awal berfokus pada penyiapan proyek, otentikasi, modul produk yang komprehensif, fungsionalitas inti manajemen stok, dan penyempurnaan modul POS. Puncaknya adalah refactor arsitektur struk/invoice menjadi komponen modular yang dapat digunakan kembali.
+#### **Fase 1-11: Fondasi, POS, & Modul CRM - Selesai**
+Fase-fase awal berfokus pada penyiapan proyek, otentikasi, modul produk, penyempurnaan POS, arsitektur struk modular, dan implementasi modul CRM yang lengkap dengan halaman detail pelanggan dan integrasi WhatsApp.
 
 ---
 
-#### **Fase 11: Pendalaman Modul CRM - Selesai**
-Fase ini memperdalam modul CRM untuk memberikan wawasan bisnis yang nyata.
+#### **Fase 12: Dashboard Outlet & Integrasi Inventaris - Selesai**
+Fase ini mengubah modul Outlet menjadi dashboard operasional dengan menampilkan detail, riwayat transaksi, dan daftar stok. Modul ini juga diintegrasikan dengan modul inventaris yang ada.
+
+---
+
+#### **Fase 13: Sistem Transfer Stok (Surat Jalan) - Selesai**
+Fase ini membangun sistem logistik internal yang lengkap dan andal.
 **Pencapaian Utama:**
-- **Manajemen Pelanggan Penuh:** Mengimplementasikan fungsionalitas CRUD (Create, Read, Update, Delete) yang lengkap di halaman manajemen pelanggan.
-- **Halaman Detail Pelanggan:** Membuat halaman dinamis (`/customers/[customerId]`) yang menampilkan:
-    - Profil lengkap pelanggan.
-    - Statistik kunci (Total Belanja, Kunjungan Terakhir, dll.).
-    - Riwayat transaksi pelanggan dengan fitur pencarian dan paginasi.
-- **Interaksi Digital:** Mengimplementasikan fitur kirim struk/invoice ke WhatsApp melalui halaman web publik yang unik.
+- **Struktur Database Formal:** Membuat tabel `stock_transfers` dan `stock_transfer_items` untuk mendokumentasikan setiap perpindahan.
+- **Siklus Hidup Transfer:** Mengimplementasikan alur kerja penuh dari `draft` -> `sent` -> `received` / `cancelled`.
+- **Logika Backend Aman:** Membangun RPC di database untuk memproses pengiriman (pengurangan stok) dan penerimaan (penambahan stok) secara transaksional dan aman.
+- **Antarmuka Pengguna (UI) Lengkap:** Membuat halaman untuk:
+    - Menampilkan daftar semua Surat Jalan.
+    - Membuat Surat Jalan baru dengan kemampuan mencari dan menambahkan beberapa produk sekaligus (transfer massal).
+    - Melihat detail setiap Surat Jalan dan melakukan aksi (kirim, terima, batal).
 
 ---
 
 ### **Peta Jalan & Rencana Pengembangan**
 
-#### **Fase 12: Dashboard Outlet & Integrasi Inventaris - Selanjutnya**
-Setelah modul CRM menjadi matang, fokus selanjutnya adalah mengubah modul Outlet dari sekadar daftar alamat menjadi *dashboard operasional* untuk setiap lokasi bisnis. Fase ini akan **menghubungkan dan memanfaatkan** modul inventaris yang sudah ada.
+#### **Fase 14: Dasbor & Peningkatan UX Inventaris - Selanjutnya**
+Setelah alur kerja transfer stok selesai, fase ini akan fokus pada memberikan visibilitas data yang lebih baik dan meningkatkan pengalaman pengguna saat berinteraksi dengan sistem inventaris.
 **Rencana Aksi:**
-- **Halaman Detail Outlet:**
-    - Membuat halaman dinamis baru (`/dashboard/outlets/[outletId]`).
-    - Menampilkan informasi lengkap outlet.
-    - **Fitur Kunci:** Menampilkan daftar **inventaris dan jumlah stok** untuk semua produk yang ada di outlet tersebut.
-    - Menampilkan riwayat transaksi yang terjadi spesifik di outlet tersebut.
-- **Integrasi dengan Modul Inventaris:**
-    - Di dalam daftar inventaris, setiap produk akan memiliki link "Kelola Stok" yang mengarahkan pengguna ke halaman manajemen stok (`/inventory/[variantId]`) yang sudah ada untuk melakukan aksi (penyesuaian/transfer).
+- **Halaman Laporan Stok (Kartu Stok):**
+    - Membuat halaman baru di dalam modul Inventaris yang berfungsi sebagai "Kartu Stok" atau laporan stok utama.
+    - Halaman ini akan menampilkan tabel **semua produk** dan jumlah stoknya di **setiap outlet**, memberikan gambaran global tentang inventaris.
+- **Peningkatan UX Formulir Transfer:**
+    - Memodifikasi komponen pencarian produk di halaman "Buat Transfer Baru".
+    - Saat produk dicari, hasilnya akan **menampilkan jumlah stok yang tersedia** di outlet asal yang telah dipilih, sehingga pengguna tahu batas maksimal yang bisa ditransfer.
 
 ---
 
 #### **Ide untuk Masa Depan**
 
 1.  **Manajemen Dokumen Inventaris:**
-    - **Surat Jalan (Delivery Order):** Membuat catatan formal untuk setiap transfer stok. Ini akan memiliki nomor unik, tanggal, detail barang, dan status (Dikirim, Diterima). Surat Jalan ini harus bisa dicetak.
-    - **Pesanan Pembelian (Purchase Order):** Membuat alur kerja untuk membuat PO ke pemasok, yang kemudian dapat digunakan untuk "menerima barang" di fitur penyesuaian stok.
-2.  **Manajemen Stok Lanjutan:** Mengimplementasikan fitur **Transfer Stok Massal** (memindahkan banyak produk sekaligus dalam satu formulir).
-3.  **Segmentasi Pelanggan:** Menambahkan fitur grup dan label (misal: VIP, Reseller) untuk keperluan marketing.
-4.  **Impor/Ekspor Data:** Memungkinkan pengguna untuk mengimpor/ekspor daftar pelanggan.
-5.  **Modul Skala Lebih Besar:** Manajemen Pemasok, Laporan Penjualan Lanjutan.
+    - **Cetak Surat Jalan:** Mengimplementasikan fungsionalitas cetak pada halaman detail transfer.
+    - **Pesanan Pembelian (Purchase Order):** Membuat alur kerja untuk membuat PO ke pemasok.
+2.  **Segmentasi Pelanggan:** Menambahkan fitur grup dan label (misal: VIP, Reseller).
+3.  **Modul Skala Lebih Besar:** Manajemen Pemasok, Laporan Penjualan Lanjutan.
