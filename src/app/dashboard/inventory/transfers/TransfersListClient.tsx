@@ -2,7 +2,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { StockTransferListItem } from './actions';
+// Perbarui tipe data yang diimpor
+import { StockTransferListItem as OriginalStockTransferListItem } from './actions';
+
+// Tambahkan received_at ke tipe data
+type StockTransferListItem = OriginalStockTransferListItem & { received_at?: string | null };
 
 const StatusBadge = ({ status }: { status: string }) => {
     const baseClasses = "px-2 py-1 text-xs font-medium rounded-full";
@@ -36,6 +40,7 @@ export function TransfersListClient({ transfers }: { transfers: StockTransferLis
                             <th className="h-12 px-4 text-left align-middle font-medium">Ke</th>
                             <th className="h-12 px-4 text-left align-middle font-medium">Status</th>
                             <th className="h-12 px-4 text-left align-middle font-medium">Tgl. Kirim</th>
+                            <th className="h-12 px-4 text-left align-middle font-medium">Tgl. Terima</th>
                             <th className="h-12 px-4 text-right align-middle font-medium">Jumlah Item</th>
                         </tr>
                     </thead>
@@ -51,11 +56,12 @@ export function TransfersListClient({ transfers }: { transfers: StockTransferLis
                                 <td className="p-4 align-middle">{tr.outlet_to_name}</td>
                                 <td className="p-4 align-middle"><StatusBadge status={tr.status} /></td>
                                 <td className="p-4 align-middle">{formatDate(tr.sent_at)}</td>
+                                <td className="p-4 align-middle">{formatDate(tr.received_at)}</td>
                                 <td className="p-4 align-middle text-right">{tr.item_count}</td>
                             </tr>
                         )) : (
                             <tr>
-                                <td colSpan={6} className="p-8 text-center text-gray-500">
+                                <td colSpan={7} className="p-8 text-center text-gray-500">
                                     Belum ada transfer stok yang dibuat.
                                 </td>
                             </tr>

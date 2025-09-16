@@ -3,8 +3,8 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Printer, Truck, XCircle, Loader2 } from 'lucide-react';
-import { StockTransferDetails, sendStockTransfer, cancelStockTransfer } from './actions';
+import { ArrowLeft, Printer, Truck, XCircle, Loader2, CheckCircle } from 'lucide-react';
+import { StockTransferDetails, sendStockTransfer, cancelStockTransfer, receiveStockTransfer } from './actions';
 
 // Komponen-komponen kecil
 const InfoItem = ({ label, value }: { label: string; value: React.ReactNode }) => (
@@ -32,11 +32,10 @@ export function TransferDetailClient({ initialDetails }: { initialDetails: Stock
     const [isPending, startTransition] = useTransition();
     const router = useRouter();
 
-    const handleSend = () => {
+    const handleAction = (action: (id: string) => Promise<{success: boolean, message?: string}>) => {
         startTransition(async () => {
-            const result = await sendStockTransfer(details!.id);
+            const result = await action(details!.id);
             if (result.success) {
-                // Refresh data
                 router.refresh(); 
             } else {
                 alert(`Error: ${result.message}`);
@@ -46,19 +45,17 @@ export function TransferDetailClient({ initialDetails }: { initialDetails: Stock
     
     const handleCancel = () => {
         if (confirm("Anda yakin ingin membatalkan draf transfer ini?")) {
-            startTransition(async () => {
-                await cancelStockTransfer(details!.id);
-                // Redirect akan ditangani oleh server action
-            });
+            startTransition(() => cancelStockTransfer(details!.id));
         }
     };
 
-    const formatDate = (dateString: string | null) => dateString ? new Date(dateString).toLocaleString('id-ID') : '-';
+    const formatDate = (dateString: string | null) => dateString ? new Date(dateString).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '-';
 
     if (!details) return null;
 
     const canBeSent = details.status === 'draft';
     const canBeCancelled = details.status === 'draft';
+    const canBeReceived = details.status === 'sent';
 
     return (
         <div className="w-full">
@@ -77,8 +74,13 @@ export function TransferDetailClient({ initialDetails }: { initialDetails: Stock
                         </button>
                     )}
                     {canBeSent && (
-                        <button onClick={handleSend} disabled={isPending} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:bg-gray-400">
+                        <button onClick={() => handleAction(sendStockTransfer)} disabled={isPending} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:bg-gray-400">
                              {isPending ? <Loader2 className="animate-spin" /> : <Truck size={18} />} Kirim Stok
+                        </button>
+                    )}
+                    {canBeReceived && (
+                         <button onClick={() => handleAction(receiveStockTransfer)} disabled={isPending} className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:bg-gray-400">
+                             {isPending ? <Loader2 className="animate-spin" /> : <CheckCircle size={18} />} Terima Stok
                         </button>
                     )}
                     <button disabled={isPending} className="bg-gray-200 px-4 py-2 rounded-lg flex items-center gap-2">

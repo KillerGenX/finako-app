@@ -59,16 +59,13 @@ export async function getTransferDetails(transferId: string): Promise<StockTrans
     }
 }
 
-export async function sendStockTransfer(transferId: string) {
-    // Di sini kita akan membutuhkan RPC lain untuk memproses pengiriman
-    // Untuk saat ini, kita akan update statusnya saja
+export async function sendStockTransfer(transferId: string): Promise<{ success: boolean; message?: string }> {
     try {
         const { supabase, organization_id } = await getSupabaseAndOrgId();
-        const { error } = await supabase
-            .from('stock_transfers')
-            .update({ status: 'sent', sent_at: new Date().toISOString() })
-            .eq('id', transferId)
-            .eq('organization_id', organization_id);
+        const { error } = await supabase.rpc('process_stock_transfer_sending', {
+            p_transfer_id: transferId,
+            p_organization_id: organization_id
+        });
         if (error) throw new Error(error.message);
     } catch (e: any) {
         return { success: false, message: e.message };
@@ -77,6 +74,22 @@ export async function sendStockTransfer(transferId: string) {
     return { success: true };
 }
 
+export async function receiveStockTransfer(transferId: string): Promise<{ success: boolean; message?: string }> {
+    try {
+        const { supabase, organization_id } = await getSupabaseAndOrgId();
+        const { error } = await supabase.rpc('process_stock_transfer_reception', {
+            p_transfer_id: transferId,
+            p_organization_id: organization_id
+        });
+        if (error) throw new Error(error.message);
+    } catch (e: any) {
+        return { success: false, message: e.message };
+    }
+    revalidatePath(`/dashboard/inventory/transfers/${transferId}`);
+    return { success: true };
+}
+
+
 export async function cancelStockTransfer(transferId: string) {
     try {
         const { supabase, organization_id } = await getSupabaseAndOrgId();
@@ -84,7 +97,7 @@ export async function cancelStockTransfer(transferId: string) {
             .from('stock_transfers')
             .update({ status: 'cancelled' })
             .eq('id', transferId)
-            .eq('status', 'draft') // Hanya bisa membatalkan draft
+            .eq('status', 'draft')
             .eq('organization_id', organization_id);
         if (error) throw new Error(error.message);
     } catch (e: any) {

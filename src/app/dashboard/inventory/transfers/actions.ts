@@ -11,6 +11,7 @@ export type StockTransferListItem = {
     outlet_to_name: string;
     status: string;
     sent_at: string | null;
+    received_at: string | null; // Tambahkan ini
     item_count: number;
 };
 
@@ -33,7 +34,6 @@ export async function getStockTransfers(): Promise<StockTransferListItem[]> {
 
     if (!member) return [];
 
-    // PERBAIKAN: Menambahkan alias ke relasi untuk menghindari ambiguitas
     const { data, error } = await supabase
         .from('stock_transfers')
         .select(`
@@ -43,6 +43,7 @@ export async function getStockTransfers(): Promise<StockTransferListItem[]> {
             outlet_to:outlet_to_id(name),
             status,
             sent_at,
+            received_at,
             items:stock_transfer_items(count)
         `)
         .eq('organization_id', member.organization_id)
@@ -61,6 +62,7 @@ export async function getStockTransfers(): Promise<StockTransferListItem[]> {
         outlet_to_name: item.outlet_to.name,
         status: item.status,
         sent_at: item.sent_at,
+        received_at: item.received_at,
         item_count: item.items[0]?.count || 0,
     }));
 }
