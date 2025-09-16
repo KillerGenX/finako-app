@@ -55,7 +55,8 @@ export async function getProductsForOutlet(outletId: string) {
 export async function createTransaction(
     cartData: CartItemForDb[],
     outletId: string,
-    totalDiscount: number // Parameter baru untuk diskon transaksi
+    totalDiscount: number,
+    customerId: string | null // Parameter baru untuk customer
 ): Promise<Result> {
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -79,7 +80,8 @@ export async function createTransaction(
             p_outlet_id: outletId,
             p_member_id: member.id,
             p_cart_items: cartData,
-            p_total_discount: totalDiscount // Mengirim diskon transaksi ke RPC
+            p_total_discount: totalDiscount,
+            p_customer_id: customerId // Mengirim customer_id ke RPC
         });
 
         if (error) {
