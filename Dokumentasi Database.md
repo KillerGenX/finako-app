@@ -288,6 +288,52 @@ CREATE TABLE public.inventory_stock_movements (
 COMMENT ON TABLE public.inventory_stock_movements IS 'Immutable ledger of all stock movements.';
 COMMENT ON COLUMN public.inventory_stock_movements.reference_id IS 'ID of the source document (e.g., transaction_id, stock_adjustment_id).';
 
+-- Buat Tipe ENUM baru untuk status transfer
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'stock_transfer_status') THEN
+        CREATE TYPE public.stock_transfer_status AS ENUM ('draft', 'sent', 'received', 'cancelled');
+    END IF;
+END$$;
+
+
+--  Buat Tabel Header (stock_transfers)
+CREATE TABLE IF NOT EXISTS public.stock_transfers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+    transfer_number TEXT NOT NULL UNIQUE,
+    outlet_from_id UUID NOT NULL REFERENCES public.outlets(id),
+    outlet_to_id UUID NOT NULL REFERENCES public.outlets(id),
+    status public.stock_transfer_status NOT NULL DEFAULT 'draft',
+    notes TEXT,
+    created_by UUID REFERENCES auth.users(id),
+    sent_at TIMESTAMPTZ,
+    received_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT outlets_must_be_different CHECK (outlet_from_id <> outlet_to_id)
+);
+COMMENT ON TABLE public.stock_transfers IS 'Dokumen header untuk transfer stok antar-outlet (Surat Jalan).';
+COMMENT ON COLUMN public.stock_transfers.transfer_number IS 'Nomor unik untuk Surat Jalan, bisa dibuat dengan sequence.';
+
+
+-- Buat Tabel Detail (stock_transfer_items)
+CREATE TABLE IF NOT EXISTS public.stock_transfer_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    stock_transfer_id UUID NOT NULL REFERENCES public.stock_transfers(id) ON DELETE CASCADE,
+    product_variant_id UUID NOT NULL REFERENCES public.product_variants(id),
+    quantity NUMERIC(10, 4) NOT NULL
+);
+COMMENT ON TABLE public.stock_transfer_items IS 'Item-item produk yang termasuk dalam satu Surat Jalan.';
+
+
+-- Tambahkan Indeks untuk Performa
+CREATE INDEX IF NOT EXISTS idx_stock_transfers_organization_id ON public.stock_transfers(organization_id);
+CREATE INDEX IF NOT EXISTS idx_stock_transfers_status ON public.stock_transfers(status);
+CREATE INDEX IF NOT EXISTS idx_stock_transfer_items_stock_transfer_id ON public.stock_transfer_items(stock_transfer_id);
+
+
+
 
 -- ========== MODUL V: TRANSAKSI & PENJUALAN (POS) ==========
 
