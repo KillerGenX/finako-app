@@ -1,6 +1,6 @@
 # Dokumentasi Aplikasi Finako
 
-Versi: 1.6
+Versi: 1.7
 Tanggal Pembaruan: [Tanggal Hari Ini]
 
 ---
@@ -17,10 +17,7 @@ Finako adalah aplikasi Point of Sale (POS) berbasis SaaS (Software as a Service)
 **Backend**: Supabase (REST API, Edge Functions, Database Functions/RPC)
 **Styling & UI**: Tailwind CSS Terbaru + Komponen bergaya Shadcn/UI
 **Validasi Data**: Zod
-**Manajemen State**: (Lihat catatan di bawah)
 **Pendekatan**: Mobile-First dan PWA
-
-
 
 ---
 
@@ -34,44 +31,51 @@ Fase-fase awal berfokus pada penyiapan proyek, otentikasi, implementasi modul pr
 #### **Fase 9: Penyempurnaan & Kelengkapan Modul POS - Selesai**
 Fase ini mengubah halaman POS dasar menjadi alat kasir yang matang dan profesional dengan logika bisnis yang kompleks dan akurat.
 **Pencapaian Utama:**
-- **Arsitektur Data Cerdas:**
-    - Membuat RPC `get_pos_data` khusus yang secara efisien memuat produk berdasarkan **stok yang relevan di outlet terpilih**.
-    - Memperbaiki bug di mana semua produk tampil tanpa memperdulikan stok outlet.
-- **Kalkulasi Keranjang yang Akurat:**
-    - Mengimplementasikan logika perhitungan yang benar untuk **pajak inklusif dan eksklusif**.
-    - Mengintegrasikan sistem **diskon per-item dan per-transaksi** (nominal & persentase).
-    - Memastikan semua kalkulasi (subtotal, diskon, pajak, grand total) mengikuti urutan operasi matematika yang benar dan konsisten.
-- **Alur Pembayaran Profesional:**
-    - Membangun **Modal Pembayaran** untuk transaksi tunai.
-    - Fitur meliputi input terformat Rupiah, tombol uang cepat, dan kalkulator kembalian otomatis.
-- **Penyimpanan Data Transaksi yang Lengkap:**
-    - Memperbarui RPC `create_new_sale` secara iteratif untuk menyimpan semua detail transaksi, termasuk **pajak dan diskon** per item dan per transaksi, ke dalam database dengan benar.
-- **Perbaikan UX & Bug Kritis:**
-    - Memperbaiki penamaan produk varian menjadi format "Produk - Varian".
-    - Menambahkan filter kategori di halaman POS.
-    - Mengatasi berbagai bug terkait format angka dan state management (misal: diskon transaksi yang tidak ter-reset).
+- **Arsitektur Data Cerdas:** Membuat RPC `get_pos_data` untuk memuat produk yang relevan dengan stok outlet.
+- **Kalkulasi Keranjang yang Akurat:** Mengimplementasikan logika pajak inklusif/eksklusif dan diskon per-item/per-transaksi.
+- **Alur Pembayaran Profesional:** Membangun Modal Pembayaran yang fungsional.
+- **Penyimpanan Data Transaksi yang Lengkap:** Memperbarui RPC `create_new_sale` untuk menyimpan semua detail transaksi.
+- **Perbaikan UX & Bug Kritis:** Memperbaiki penamaan produk varian, menambahkan filter, dan mengatasi berbagai bug.
+
+---
+
+#### **Fase 10: Arsitektur Struk Modular & Fondasi CRM - Selesai**
+Fase ini berfokus pada pengalaman pasca-transaksi dan membangun fondasi yang kokoh dan dapat digunakan kembali untuk fitur-fitur masa depan.
+**Pencapaian Utama:**
+- **Refactor Arsitektur Struk:**
+    - Memisahkan komponen struk menjadi komponen "pintar" (`ReceiptManager`) untuk logika dan komponen "bodoh" (`TransactionReceipt`, `InvoiceView`) untuk tampilan.
+    - Arsitektur ini memungkinkan satu sumber kebenaran untuk desain struk, sehingga mudah dirawat dan diperbarui.
+- **Implementasi Multi-Template:**
+    - Membuat dua template visual: struk thermal standar dan invoice/faktur formal.
+    - Pengguna dapat beralih antara dua tampilan ini secara *real-time*.
+- **Fungsionalitas Cetak yang Andal:**
+    - Mengimplementasikan metode cetak berbasis CSS `@media print` yang terenkapsulasi di dalam komponen.
+    - Memastikan hasil cetak (termasuk warna) identik dengan yang ditampilkan di layar (WYSIWYG).
+- **Fondasi CRM di POS:**
+    - Menambahkan UI `CustomerSelector` di halaman kasir.
+    - Memperbarui alur transaksi dari frontend hingga backend (RPC `create_new_sale_v5`) untuk dapat menautkan transaksi ke seorang pelanggan.
+- **Peningkatan Konsistensi UI:** Memperbaiki tampilan nama kasir di halaman POS agar konsisten menggunakan nama lengkap dari profil, bukan email.
 
 ---
 
 ### **Peta Jalan & Rencana Pengembangan**
 
-#### **Fase 10: Pengalaman Pasca-Transaksi & CRM Dasar - Selanjutnya**
-Setelah alur transaksi dari pemilihan produk hingga pembayaran selesai, fokus selanjutnya adalah pada apa yang terjadi **setelah** transaksi berhasil dan mulai menghubungkannya dengan entitas bisnis lain.
+#### **Fase 11: Interaktivitas & Ekspor Digital - Selanjutnya**
+Membangun di atas fondasi struk modular yang telah dibuat, fase ini akan fokus pada interaksi pelanggan dan menyediakan cara mudah untuk berbagi struk secara digital.
 **Rencana Aksi:**
-- **Struk Digital / Layar Pasca-Transaksi:**
-    - Mendesain dan membangun komponen modal atau halaman baru yang muncul setelah pembayaran berhasil.
-    - Menampilkan ringkasan transaksi (struk digital) yang jelas.
-    - Menyediakan tombol aksi seperti "Transaksi Baru" atau "Cetak Struk" (fungsionalitas cetak akan diimplementasikan nanti).
-- **Integrasi Pelanggan (CRM) di POS:**
-    - Menambahkan UI di halaman kasir untuk **memilih pelanggan** yang sudah ada atau **menambahkan pelanggan baru** dengan cepat.
-    - Memperbarui `create_new_sale` untuk menerima `customer_id` opsional dan menautkan transaksi ke pelanggan.
+- **Fitur Kirim Struk/Invoice ke WhatsApp:**
+    - **Pilihan 1 (Teks):** Membuat fungsi yang menghasilkan ringkasan transaksi dalam format teks yang rapi dan terstruktur, lalu membukanya di aplikasi WhatsApp pengguna melalui tautan `wa.me`.
+    - **Pilihan 2 (Gambar):** Mengimplementasikan library di sisi klien (seperti `html-to-image`) untuk mengubah komponen JSX struk/invoice menjadi gambar (PNG/JPEG). Gambar ini kemudian dapat dibagikan atau diunduh.
+    - Menambahkan tombol "Kirim via WA" di `ReceiptManager` yang akan memicu fungsionalitas ini.
+- **Melengkapi Fungsionalitas CRM di POS:**
+    - Membangun logika penuh untuk modal `CustomerSelector` yang saat ini masih placeholder.
+    - Membuat Server Action untuk mencari pelanggan berdasarkan nama/nomor telepon.
+    - Membuat Server Action untuk menambah pelanggan baru dengan cepat melalui form di dalam modal.
 
 ---
 
 #### **Ide untuk Masa Depan**
 
-1.  **Fitur Inventaris Cerdas:**
-    - Alur Kerja Stok Opname Terpandu & Laporan Inventaris Lanjutan.
-2.  **Modul Skala Lebih Besar:**
-    - Manajemen Pemasok & Pesanan Pembelian.
-    - Laporan Penjualan Lanjutan & Manajemen Pelanggan (CRM) Penuh.
+1.  **Fitur Inventaris Cerdas:** Alur Kerja Stok Opname Terpandu & Laporan Inventaris Lanjutan.
+2.  **Modul Skala Lebih Besar:** Manajemen Pemasok & Pesanan Pembelian, Laporan Penjualan Lanjutan & CRM Penuh.
+3.  **Halaman Riwayat Transaksi:** Halaman khusus untuk melihat daftar semua transaksi, dengan kemampuan untuk membuka kembali dan mencetak ulang struk/invoice menggunakan `ReceiptManager`.
