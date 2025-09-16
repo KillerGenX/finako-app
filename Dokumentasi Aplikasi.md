@@ -42,22 +42,25 @@ Fase ini memperdalam modul CRM untuk memberikan wawasan bisnis yang nyata.
 
 ### **Peta Jalan & Rencana Pengembangan**
 
-#### **Fase 12: Pendalaman Modul Outlet & Inventaris - Selanjutnya**
-Setelah modul CRM menjadi matang, fokus selanjutnya adalah mengubah modul Outlet dari sekadar daftar alamat menjadi *dashboard operasional* untuk setiap lokasi bisnis, yang menjadi dasar untuk manajemen inventaris multi-lokasi.
+#### **Fase 12: Dashboard Outlet & Integrasi Inventaris - Selanjutnya**
+Setelah modul CRM menjadi matang, fokus selanjutnya adalah mengubah modul Outlet dari sekadar daftar alamat menjadi *dashboard operasional* untuk setiap lokasi bisnis. Fase ini akan **menghubungkan dan memanfaatkan** modul inventaris yang sudah ada.
 **Rencana Aksi:**
 - **Halaman Detail Outlet:**
     - Membuat halaman dinamis baru (`/dashboard/outlets/[outletId]`).
-    - Menampilkan informasi lengkap outlet, termasuk peta interaktif.
+    - Menampilkan informasi lengkap outlet.
     - **Fitur Kunci:** Menampilkan daftar **inventaris dan jumlah stok** untuk semua produk yang ada di outlet tersebut.
     - Menampilkan riwayat transaksi yang terjadi spesifik di outlet tersebut.
-- **RPC & Server Actions:** Membangun backend yang diperlukan untuk mengambil data komprehensif ini secara efisien.
+- **Integrasi dengan Modul Inventaris:**
+    - Di dalam daftar inventaris, setiap produk akan memiliki link "Kelola Stok" yang mengarahkan pengguna ke halaman manajemen stok (`/inventory/[variantId]`) yang sudah ada untuk melakukan aksi (penyesuaian/transfer).
 
 ---
 
 #### **Ide untuk Masa Depan**
 
-1.  **Manajemen Stok Lanjutan:** Mengimplementasikan fitur **Transfer Stok** antar-outlet.
-2.  **Segmentasi Pelanggan:** Menambahkan fitur grup dan label (misal: VIP, Reseller) untuk keperluan marketing.
-3.  **Impor/Ekspor Data:** Memungkinkan pengguna untuk mengimpor/ekspor daftar pelanggan.
-4.  **Fitur Inventaris Cerdas:** Alur Kerja Stok Opname Terpandu & Laporan Inventaris Lanjutan.
-5.  **Modul Skala Lebih Besar:** Manajemen Pemasok & Pesanan Pembelian, Laporan Penjualan Lanjutan.
+1.  **Manajemen Dokumen Inventaris:**
+    - **Surat Jalan (Delivery Order):** Membuat catatan formal untuk setiap transfer stok. Ini akan memiliki nomor unik, tanggal, detail barang, dan status (Dikirim, Diterima). Surat Jalan ini harus bisa dicetak.
+    - **Pesanan Pembelian (Purchase Order):** Membuat alur kerja untuk membuat PO ke pemasok, yang kemudian dapat digunakan untuk "menerima barang" di fitur penyesuaian stok.
+2.  **Manajemen Stok Lanjutan:** Mengimplementasikan fitur **Transfer Stok Massal** (memindahkan banyak produk sekaligus dalam satu formulir).
+3.  **Segmentasi Pelanggan:** Menambahkan fitur grup dan label (misal: VIP, Reseller) untuk keperluan marketing.
+4.  **Impor/Ekspor Data:** Memungkinkan pengguna untuk mengimpor/ekspor daftar pelanggan.
+5.  **Modul Skala Lebih Besar:** Manajemen Pemasok, Laporan Penjualan Lanjutan.
