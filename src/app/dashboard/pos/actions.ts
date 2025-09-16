@@ -3,8 +3,9 @@
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
 
-// ========= TIPE DATA UNTUK TRANSAKSI (DIPERBARUI) =========
+// ========= TIPE DATA & SKEMA =========
 type CartItemForDb = {
     variant_id: string;
     quantity: number;
@@ -18,6 +19,12 @@ type Result = {
     message: string;
     transaction_id?: string;
 };
+
+// Skema validasi untuk pelanggan baru
+const CustomerSchema = z.object({
+    name: z.string().min(3, "Nama pelanggan minimal 3 karakter."),
+    phone: z.string().min(10, "Nomor telepon minimal 10 digit.").refine(val => !isNaN(Number(val)), "Nomor telepon harus berupa angka."),
+});
 
 
 // ========= FUNGSI UNTUK MENGAMBIL DATA PRODUK POS =========
@@ -51,12 +58,12 @@ export async function getProductsForOutlet(outletId: string) {
 }
 
 
-// ========= FUNGSI UNTUK MEMBUAT TRANSAKSI (DIPERBARUI) =========
+// ========= FUNGSI UNTUK MEMBUAT TRANSAKSI =========
 export async function createTransaction(
     cartData: CartItemForDb[],
     outletId: string,
     totalDiscount: number,
-    customerId: string | null // Parameter baru untuk customer
+    customerId: string | null
 ): Promise<Result> {
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -81,7 +88,7 @@ export async function createTransaction(
             p_member_id: member.id,
             p_cart_items: cartData,
             p_total_discount: totalDiscount,
-            p_customer_id: customerId // Mengirim customer_id ke RPC
+            p_customer_id: customerId
         });
 
         if (error) {
@@ -104,7 +111,8 @@ export async function createTransaction(
     }
 }
 
-// ========= FUNGSI BARU UNTUK MENGAMBIL DETAIL TRANSAKSI =========
+
+// ========= FUNGSI UNTUK MENGAMBIL DETAIL TRANSAKSI =========
 export async function getTransactionDetails(transactionId: string) {
     if (!transactionId) return null;
 
@@ -129,4 +137,81 @@ export async function getTransactionDetails(transactionId: string) {
         console.error("Server Action getTransactionDetails Error:", e);
         return null;
     }
+}
+
+
+// ========= FUNGSI-FUNGSI BARU UNTUK CRM =========
+
+export async function searchCustomers(query: string) {
+    if (!query) return [];
+    
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { cookies: { get(name: string) { return cookieStore.get(name)?.value } } }
+    );
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+    
+    const { data: member } = await supabase.from('organization_members').select('organization_id').eq('user_id', user.id).single();
+    if (!member) return [];
+
+    const { data, error } = await supabase
+        .from('customers')
+        .select('id, name, phone_number')
+        .eq('organization_id', member.organization_id)
+        .or(`name.ilike.%${query}%,phone_number.ilike.%${query}%`)
+        .limit(10);
+    
+    if (error) {
+        console.error("Error searching customers:", error);
+        return [];
+    }
+    
+    return data;
+}
+
+export async function createCustomer(formData: FormData) {
+    const validatedFields = CustomerSchema.safeParse({
+        name: formData.get('name'),
+        phone: formData.get('phone'),
+    });
+
+    if (!validatedFields.success) {
+        return { success: false, message: validatedFields.error.flatten().fieldErrors, customer: null };
+    }
+
+    const { name, phone } = validatedFields.data;
+
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { cookies: { get(name: string) { return cookieStore.get(name)?.value } } }
+    );
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, message: "Pengguna tidak terautentikasi.", customer: null };
+
+    const { data: member } = await supabase.from('organization_members').select('organization_id').eq('user_id', user.id).single();
+    if (!member) return { success: false, message: "Organisasi tidak ditemukan.", customer: null };
+
+    const { data: newCustomer, error } = await supabase
+        .from('customers')
+        .insert({
+            organization_id: member.organization_id,
+            name: name,
+            phone_number: phone,
+        })
+        .select('id, name, phone_number')
+        .single();
+    
+    if (error) {
+        console.error("Error creating customer:", error);
+        return { success: false, message: `Database Error: ${error.message}`, customer: null };
+    }
+
+    return { success: true, message: "Pelanggan berhasil ditambahkan.", customer: newCustomer };
 }
