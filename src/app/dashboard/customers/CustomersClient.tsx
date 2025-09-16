@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from 'react';
-import { Search, Plus, MoreHorizontal, Pencil, Trash2, X, Loader2 } from 'lucide-react';
-import { getCustomers, updateCustomer, deleteCustomer } from './actions';
-import { createCustomer } from '../pos/actions'; // Import create action
+import { Search, Plus, X, Loader2 } from 'lucide-react';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 
 // Tipe data untuk Pelanggan
@@ -15,6 +13,14 @@ type Customer = {
     address: string | null;
     created_at: string;
 };
+
+// Tipe untuk server actions yang diterima
+type CustomerServerActions = {
+    getCustomers: (query: string) => Promise<{ data?: Customer[], error?: string }>;
+    createCustomer: (formData: FormData) => Promise<{ success: boolean, message: any }>;
+    updateCustomer: (formData: FormData) => Promise<{ success: boolean, message: any }>;
+    deleteCustomer: (id: string) => Promise<{ success: boolean, message: string }>;
+}
 
 // --- Komponen Modal Add/Edit ---
 function CustomerModal({ 
@@ -30,7 +36,7 @@ function CustomerModal({
 }) {
     const isEditMode = !!customer?.id;
     return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center">
+        <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
                 <form action={onSave}>
                     <div className="p-6">
@@ -62,7 +68,7 @@ function CustomerModal({
 // --- Komponen Utama ---
 export function CustomersClient({ initialCustomers, serverActions }: {
     initialCustomers: Customer[],
-    serverActions: { createCustomer: any, getCustomers: any }
+    serverActions: CustomerServerActions
 }) {
     const [customers, setCustomers] = useState(initialCustomers);
     const [isPending, startTransition] = useTransition();
@@ -76,32 +82,31 @@ export function CustomersClient({ initialCustomers, serverActions }: {
     // Efek untuk pencarian
     useEffect(() => {
         startTransition(async () => {
-            const { data } = await getCustomers(debouncedSearch);
+            const { data } = await serverActions.getCustomers(debouncedSearch);
             setCustomers(data || []);
         });
-    }, [debouncedSearch]);
+    }, [debouncedSearch, serverActions]);
 
     // Handler untuk form actions
     const handleSave = async (formData: FormData) => {
         const isEdit = !!formData.get('id');
-        const action = isEdit ? updateCustomer : createCustomer;
+        const action = isEdit ? serverActions.updateCustomer : serverActions.createCustomer;
         
         startTransition(async () => {
             const result = await action(formData);
             if(result.success) {
-                // Refresh data
-                const { data } = await getCustomers(debouncedSearch);
+                const { data } = await serverActions.getCustomers(debouncedSearch);
                 setCustomers(data || []);
                 setModalState({ isOpen: false, customer: null });
             } else {
-                alert(JSON.stringify(result.message)); // Tampilkan error sederhana
+                alert(JSON.stringify(result.message)); 
             }
         });
     };
 
     const handleDelete = async (customer: Customer) => {
         startTransition(async () => {
-            const result = await deleteCustomer(customer.id);
+            const result = await serverActions.deleteCustomer(customer.id);
             if (result.success) {
                 setCustomers(prev => prev.filter(c => c.id !== customer.id));
                 setConfirmDelete(null);

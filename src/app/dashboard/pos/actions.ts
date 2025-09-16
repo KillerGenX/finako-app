@@ -20,8 +20,8 @@ type Result = {
     transaction_id?: string;
 };
 
-// Skema validasi untuk pelanggan baru
-const CustomerSchema = z.object({
+// Skema validasi CEPAT untuk pelanggan dari POS
+const QuickCustomerSchema = z.object({
     name: z.string().min(3, "Nama pelanggan minimal 3 karakter."),
     phone: z.string().min(10, "Nomor telepon minimal 10 digit.").refine(val => !isNaN(Number(val)), "Nomor telepon harus berupa angka."),
 });
@@ -29,6 +29,7 @@ const CustomerSchema = z.object({
 
 // ========= FUNGSI UNTUK MENGAMBIL DATA PRODUK POS =========
 export async function getProductsForOutlet(outletId: string) {
+    // ... (kode tidak berubah)
     if (!outletId) return [];
 
     const cookieStore = await cookies();
@@ -60,6 +61,7 @@ export async function getProductsForOutlet(outletId: string) {
 
 // ========= FUNGSI UNTUK MEMBUAT TRANSAKSI =========
 export async function createTransaction(
+    // ... (kode tidak berubah)
     cartData: CartItemForDb[],
     outletId: string,
     totalDiscount: number,
@@ -102,6 +104,7 @@ export async function createTransaction(
         const newTransactionId = data;
         revalidatePath('/dashboard/products');
         revalidatePath('/dashboard/pos');
+        revalidatePath('/dashboard/customers');
 
         return { success: true, message: "Transaksi berhasil dibuat.", transaction_id: newTransactionId };
 
@@ -114,6 +117,7 @@ export async function createTransaction(
 
 // ========= FUNGSI UNTUK MENGAMBIL DETAIL TRANSAKSI =========
 export async function getTransactionDetails(transactionId: string) {
+    // ... (kode tidak berubah)
     if (!transactionId) return null;
 
     const cookieStore = await cookies();
@@ -140,9 +144,10 @@ export async function getTransactionDetails(transactionId: string) {
 }
 
 
-// ========= FUNGSI-FUNGSI BARU UNTUK CRM =========
+// ========= FUNGSI-FUNGSI UNTUK CRM (VERSI CEPAT) =========
 
 export async function searchCustomers(query: string) {
+    // ... (kode tidak berubah)
     if (!query) return [];
     
     const cookieStore = await cookies();
@@ -173,8 +178,9 @@ export async function searchCustomers(query: string) {
     return data;
 }
 
+// DIKEMBALIKAN: Fungsi createCustomer sekarang CEPAT (hanya nama & telepon)
 export async function createCustomer(formData: FormData) {
-    const validatedFields = CustomerSchema.safeParse({
+    const validatedFields = QuickCustomerSchema.safeParse({
         name: formData.get('name'),
         phone: formData.get('phone'),
     });
@@ -213,5 +219,6 @@ export async function createCustomer(formData: FormData) {
         return { success: false, message: `Database Error: ${error.message}`, customer: null };
     }
 
+    revalidatePath('/dashboard/customers');
     return { success: true, message: "Pelanggan berhasil ditambahkan.", customer: newCustomer };
 }

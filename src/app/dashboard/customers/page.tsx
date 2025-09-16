@@ -1,7 +1,7 @@
 // src/app/dashboard/customers/page.tsx
 import { CustomersClient } from './CustomersClient';
-import { getCustomers } from './actions';
-import { createCustomer } from '../pos/actions'; // Kita gunakan ulang createCustomer dari POS
+// Impor SEMUA server actions dari file lokal
+import { getCustomers, createCustomer, updateCustomer, deleteCustomer } from './actions'; 
 
 export default async function CustomersPage() {
     const { data: customers, error } = await getCustomers('');
@@ -15,7 +15,13 @@ export default async function CustomersPage() {
             <h1 className="text-2xl font-bold mb-6">Manajemen Pelanggan</h1>
             <CustomersClient 
                 initialCustomers={customers || []}
-                serverActions={{ createCustomer, getCustomers }}
+                // Kirim semua actions yang relevan ke client component
+                serverActions={{ 
+                    getCustomers, 
+                    createCustomer, 
+                    updateCustomer, 
+                    deleteCustomer 
+                }}
             />
         </div>
     );
