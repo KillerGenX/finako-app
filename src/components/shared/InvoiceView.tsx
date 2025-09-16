@@ -27,7 +27,7 @@ type TransactionDetail = {
 
 interface InvoiceViewProps {
     details: TransactionDetail | null;
-    organizationName?: string; // Nama organisasi bisa ditambahkan di masa depan
+    organizationName?: string;
 }
 
 export function InvoiceView({ details, organizationName = "Finako Store" }: InvoiceViewProps) {
@@ -47,7 +47,7 @@ export function InvoiceView({ details, organizationName = "Finako Store" }: Invo
     };
 
     if (!details) {
-        return <p className="text-center text-gray-500">Data invoice tidak tersedia.</p>;
+        return <p className="text-center text-gray-500 p-8">Data invoice tidak tersedia.</p>;
     }
 
     return (
@@ -58,7 +58,7 @@ export function InvoiceView({ details, organizationName = "Finako Store" }: Invo
                     <h1 className="text-2xl font-bold text-gray-800">{organizationName}</h1>
                     <p className="text-gray-600">{details.outlet_name}</p>
                 </div>
-                <h2 className="text-3xl font-semibold text-gray-700">INVOICE</h2>
+                <h2 className="text-3xl font-semibold text-teal-600">INVOICE</h2>
             </div>
 
             {/* Info Invoice & Pelanggan */}
@@ -66,7 +66,6 @@ export function InvoiceView({ details, organizationName = "Finako Store" }: Invo
                 <div>
                     <h3 className="font-semibold text-gray-500 mb-1">Ditagihkan Kepada:</h3>
                     <p className="font-bold">{details.customer_name || 'Pelanggan Umum'}</p>
-                    {/* Alamat pelanggan bisa ditambahkan di sini nanti */}
                 </div>
                 <div className="text-right">
                     <p><span className="font-semibold">No. Invoice:</span> {details.transaction_number}</p>
@@ -76,12 +75,12 @@ export function InvoiceView({ details, organizationName = "Finako Store" }: Invo
 
             {/* Tabel Item */}
             <table className="w-full mb-8">
-                <thead className="bg-gray-100">
+                <thead className="bg-teal-50">
                     <tr>
-                        <th className="text-left p-2 font-semibold">Deskripsi</th>
-                        <th className="p-2 font-semibold">Jumlah</th>
-                        <th className="text-right p-2 font-semibold">Harga Satuan</th>
-                        <th className="text-right p-2 font-semibold">Total</th>
+                        <th className="text-left p-2 font-semibold text-teal-700">Deskripsi</th>
+                        <th className="p-2 font-semibold text-teal-700">Jumlah</th>
+                        <th className="text-right p-2 font-semibold text-teal-700">Harga Satuan</th>
+                        <th className="text-right p-2 font-semibold text-teal-700">Total</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -103,7 +102,7 @@ export function InvoiceView({ details, organizationName = "Finako Store" }: Invo
                     <div className="flex justify-between"><span className="text-gray-600">Diskon:</span><span>-{formatCurrency(details.total_discount)}</span></div>
                     <div className="flex justify-between"><span className="text-gray-600">Pajak:</span><span>{formatCurrency(details.total_tax)}</span></div>
                     <div className="border-t my-2"></div>
-                    <div className="flex justify-between font-bold text-lg"><span >TOTAL:</span><span>{formatCurrency(details.grand_total)}</span></div>
+                    <div className="flex justify-between font-bold text-lg"><span >TOTAL:</span><span className="text-teal-600">{formatCurrency(details.grand_total)}</span></div>
                 </div>
             </div>
 

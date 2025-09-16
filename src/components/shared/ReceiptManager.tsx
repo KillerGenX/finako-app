@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { Loader2, Printer, Receipt, FileText } from 'lucide-react';
-import { getTransactionDetails } from '@/app/dashboard/pos/actions'; // Path harus disesuaikan jika komponen dipindah
+import { getTransactionDetails } from '@/app/dashboard/pos/actions';
 import { TransactionReceipt } from './TransactionReceipt';
 import { InvoiceView } from './InvoiceView';
 
 // Tipe data untuk detail transaksi
-type TransactionDetail = { /* ... (definisi tipe yang sama seperti sebelumnya) ... */ 
+type TransactionDetail = {
     transaction_number: string;
     transaction_date: string;
     outlet_name: string;
@@ -31,16 +31,13 @@ type TransactionDetail = { /* ... (definisi tipe yang sama seperti sebelumnya) .
     }[] | null;
 };
 
-// Tipe untuk view yang aktif
 type ViewMode = 'receipt' | 'invoice';
 
 interface ReceiptManagerProps {
     transactionId: string;
-    // Fungsi onPrint opsional jika kita ingin override behavior cetak dari luar
-    onPrint?: (viewMode: ViewMode) => void; 
 }
 
-export function ReceiptManager({ transactionId, onPrint }: ReceiptManagerProps) {
+export function ReceiptManager({ transactionId }: ReceiptManagerProps) {
     const [details, setDetails] = useState<TransactionDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -69,44 +66,39 @@ export function ReceiptManager({ transactionId, onPrint }: ReceiptManagerProps) 
     }, [transactionId]);
 
     const handlePrint = () => {
-        if (onPrint) {
-            onPrint(viewMode);
-            return;
-        }
-
-        const printableId = viewMode === 'receipt' ? 'printable-receipt' : 'printable-invoice';
-        const printContents = document.getElementById(printableId)?.innerHTML;
-        
-        if (printContents) {
-            // Membuat iframe tersembunyi untuk proses cetak
-            const iframe = document.createElement('iframe');
-            iframe.style.height = '0';
-            iframe.style.width = '0';
-            iframe.style.position = 'absolute';
-            iframe.style.border = '0';
-            document.body.appendChild(iframe);
-            
-            iframe.contentDocument?.write('<html><head><title>Cetak</title>');
-            // Di sini kita bisa menambahkan stylesheet khusus untuk cetak jika perlu
-            iframe.contentDocument?.write('</head><body>');
-            iframe.contentDocument?.write(printContents);
-            iframe.contentDocument?.write('</body></html>');
-            iframe.contentDocument?.close();
-            iframe.contentWindow?.focus();
-            iframe.contentWindow?.print();
-            
-            // Hapus iframe setelah selesai
-            setTimeout(() => {
-                document.body.removeChild(iframe);
-            }, 1000);
-
-        }
+        window.print();
     };
     
     return (
         <div className="w-full">
+            <style jsx global>{`
+                @media print {
+                    /* Paksa browser untuk mencetak warna latar belakang dan teks */
+                    body {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    body * {
+                        visibility: hidden;
+                    }
+                    .printable-area, .printable-area * {
+                        visibility: visible;
+                    }
+                    .printable-area {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        height: auto;
+                    }
+                    .no-print {
+                        display: none !important;
+                    }
+                }
+            `}</style>
+
             {/* Kontrol */}
-            <div className="bg-gray-100 dark:bg-gray-800 p-2 rounded-t-lg flex justify-between items-center">
+            <div className="bg-gray-100 dark:bg-gray-800 p-2 rounded-t-lg flex justify-between items-center no-print">
                 <div className="flex gap-2">
                     <button onClick={() => setViewMode('receipt')} disabled={viewMode === 'receipt'} className="px-3 py-1 rounded flex items-center gap-2 text-sm disabled:bg-teal-500 disabled:text-white bg-white dark:bg-gray-700">
                         <Receipt size={16} /> Struk
@@ -125,24 +117,20 @@ export function ReceiptManager({ transactionId, onPrint }: ReceiptManagerProps) 
             </div>
 
             {/* Konten */}
-            <div className="p-4 border dark:border-gray-700 rounded-b-lg">
+            <div className="border dark:border-gray-700 rounded-b-lg">
                  {loading && (
-                    <div className="flex justify-center items-center h-48">
+                    <div className="flex justify-center items-center h-48 no-print p-4">
                         <Loader2 className="animate-spin text-teal-500" size={40} />
                     </div>
                 )}
-                {error && <p className="text-red-500 text-center">{error}</p>}
+                {error && <p className="text-red-500 text-center no-print p-4">{error}</p>}
                 
                 {!loading && !error && (
-                    <div>
+                    <div className="printable-area">
                         {viewMode === 'receipt' ? (
-                            <div id="printable-receipt">
-                                <TransactionReceipt details={details} />
-                            </div>
+                            <TransactionReceipt details={details} />
                         ) : (
-                            <div id="printable-invoice">
-                                <InvoiceView details={details} />
-                            </div>
+                            <InvoiceView details={details} />
                         )}
                     </div>
                 )}

@@ -48,13 +48,13 @@ export function TransactionReceipt({ details }: TransactionReceiptProps) {
     };
 
     if (!details) {
-        return <p className="text-center text-gray-500">Data transaksi tidak tersedia.</p>;
+        return <p className="text-center text-gray-500 p-4">Data transaksi tidak tersedia.</p>;
     }
 
     return (
         <div className="space-y-4 text-sm font-mono bg-white text-black p-4">
             <div className="text-center">
-                <h3 className="font-bold text-lg">Finako POS</h3>
+                <h3 className="font-bold text-lg text-teal-600">Finako POS</h3>
                 <p>{details.outlet_name}</p>
             </div>
             <div className="border-t border-dashed my-2 border-gray-400"></div>
