@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react'; // Impor useEffect
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Printer, Truck, XCircle, Loader2, CheckCircle } from 'lucide-react';
 import { StockTransferDetails, sendStockTransfer, cancelStockTransfer, receiveStockTransfer } from './actions';
 
-// Komponen-komponen kecil
+// ... (Komponen InfoItem dan StatusBadge tidak berubah)
 const InfoItem = ({ label, value }: { label: string; value: React.ReactNode }) => (
     <div>
         <p className="text-sm text-gray-500">{label}</p>
@@ -32,10 +32,17 @@ export function TransferDetailClient({ initialDetails }: { initialDetails: Stock
     const [isPending, startTransition] = useTransition();
     const router = useRouter();
 
+    // PERBAIKAN KUNCI: Sinkronkan state internal dengan prop yang masuk
+    useEffect(() => {
+        setDetails(initialDetails);
+    }, [initialDetails]);
+
     const handleAction = (action: (id: string) => Promise<{success: boolean, message?: string}>) => {
         startTransition(async () => {
             const result = await action(details!.id);
             if (result.success) {
+                // router.refresh() akan memicu perubahan pada `initialDetails`
+                // yang kemudian akan ditangkap oleh useEffect di atas.
                 router.refresh(); 
             } else {
                 alert(`Error: ${result.message}`);
