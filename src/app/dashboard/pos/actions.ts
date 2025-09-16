@@ -101,3 +101,30 @@ export async function createTransaction(
         return { success: false, message: `Terjadi kesalahan pada server: ${e.message}` };
     }
 }
+
+// ========= FUNGSI BARU UNTUK MENGAMBIL DETAIL TRANSAKSI =========
+export async function getTransactionDetails(transactionId: string) {
+    if (!transactionId) return null;
+
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { cookies: { get(name: string) { return cookieStore.get(name)?.value } } }
+    );
+    
+    try {
+        const { data, error } = await supabase.rpc('get_transaction_details', { p_transaction_id: transactionId });
+
+        if (error) {
+            console.error("RPC get_transaction_details Error:", error);
+            throw new Error(`Database error: ${error.message}`);
+        }
+        
+        return data;
+
+    } catch (e: any) {
+        console.error("Server Action getTransactionDetails Error:", e);
+        return null;
+    }
+}

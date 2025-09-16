@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { createTransaction, getProductsForOutlet } from './actions';
 import { PaymentModal } from './PaymentModal';
 import { DiscountModal } from './DiscountModal';
+import { TransactionSuccessModal } from './TransactionSuccessModal'; // Import the new modal
 
 // ========= TIPE DATA =========
 type Tax = { id: string; name: string; rate: number; is_inclusive: boolean; };
@@ -38,6 +39,8 @@ export function POSClient({ outlets, categories, userName }: { outlets: Outlet[]
     // Modal States
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [discountModalState, setDiscountModalState] = useState<{ isOpen: boolean; item?: CartItem; isTransactionDiscount?: boolean }>({ isOpen: false });
+    const [completedTransactionId, setCompletedTransactionId] = useState<string | null>(null); // State for the success modal
+
 
     // Loading States
     const [isProductLoading, startProductTransition] = useTransition();
@@ -163,7 +166,6 @@ export function POSClient({ outlets, categories, userName }: { outlets: Outlet[]
 
     const handleConfirmPayment = async () => {
         setIsCheckoutLoading(true);
-        // This logic now mirrors the final calculation in useMemo
         const cartData = cart.map(item => {
             let original_base_price = item.selling_price;
             if (item.taxes?.find(t => t.is_inclusive)) {
@@ -188,11 +190,12 @@ export function POSClient({ outlets, categories, userName }: { outlets: Outlet[]
 
         try {
             const result = await createTransaction(cartData, selectedOutlet, transactionDiscountAmount);
-            if (result.success) {
-                alert('Transaksi berhasil!');
+             if (result.success && result.transaction_id) {
+                // On success, reset the state and show the new success modal
                 setCart([]);
                 setTransactionDiscount({ type: 'fixed', value: 0 });
                 setIsPaymentModalOpen(false);
+                setCompletedTransactionId(result.transaction_id); // Show success modal!
             } else {
                 alert(`Transaksi Gagal: ${result.message}`);
             }
@@ -207,10 +210,18 @@ export function POSClient({ outlets, categories, userName }: { outlets: Outlet[]
 
     return (
         <>
+            {/* --- MODALS --- */}
             <PaymentModal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} onSubmit={handleConfirmPayment} grandTotal={grandTotal} />
             <DiscountModal isOpen={discountModalState.isOpen} onClose={() => setDiscountModalState({ isOpen: false })} onApply={handleApplyDiscount}
                 itemName={discountModalState.item?.name} basePrice={discountModalState.isTransactionDiscount ? subtotal : (discountModalState.item?.selling_price || 0) * (discountModalState.item?.quantity || 0) }
             />
+            {completedTransactionId && (
+                <TransactionSuccessModal 
+                    transactionId={completedTransactionId} 
+                    onClose={() => setCompletedTransactionId(null)} 
+                />
+            )}
+
             <div className="flex flex-col md:flex-row h-[calc(100vh-100px)] gap-4 font-sans">
                 {/* Product Grid */}
                  <div className="flex-grow flex flex-col bg-white dark:bg-gray-800/50 rounded-lg border dark:border-gray-800 p-4">
@@ -224,7 +235,7 @@ export function POSClient({ outlets, categories, userName }: { outlets: Outlet[]
                             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                         <div className="relative w-full">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text_gray-400" />
                             <input type="text" placeholder="Cari produk..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border rounded-lg bg-transparent focus:outline-none focus:ring-2 focus:ring-teal-500" />
                             {searchTerm && <X onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 cursor-pointer" />}
                         </div>
