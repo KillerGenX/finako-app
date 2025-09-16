@@ -79,28 +79,23 @@ export function ReceiptManager({ transactionId }: ReceiptManagerProps) {
 
     const formatCurrency = (amount: number) => new Intl.NumberFormat('id-ID').format(amount);
     
-    // Logika untuk tombol WhatsApp
     const canShareToWhatsApp = useMemo(() => !!details?.customer_phone, [details]);
 
     const handleShareToWhatsApp = () => {
         if (!details || !details.customer_phone) return;
 
-        // 1. Format nomor telepon ke format internasional tanpa simbol
         let phoneNumber = details.customer_phone.replace(/\D/g, '');
         if (phoneNumber.startsWith('0')) {
             phoneNumber = '62' + phoneNumber.substring(1);
         }
 
-        // 2. Buat pesan teks ringkas
         const summaryText = `*Struk Pembelian - ${details.outlet_name}*\n\nTerima kasih Bpk/Ibu *${details.customer_name}* atas kunjungan Anda.\n\nBerikut ringkasan transaksi Anda:\nNo: ${details.transaction_number}\nTotal: *Rp ${formatCurrency(details.grand_total)}*\n\nUntuk melihat struk lengkap, silakan klik tautan di bawah ini:\n`;
         
-        // 3. Buat URL publik
-        const publicUrl = `${window.location.origin}/receipt/${transactionId}`;
+        // MODIFIKASI: Tambahkan query parameter ?view=... berdasarkan state viewMode
+        const publicUrl = `${window.location.origin}/receipt/${transactionId}?view=${viewMode}`;
 
-        // 4. Gabungkan dan encode untuk URL WhatsApp
         const fullMessage = encodeURIComponent(summaryText + publicUrl);
         
-        // 5. Buka di tab baru
         window.open(`https://wa.me/${phoneNumber}?text=${fullMessage}`, '_blank');
     };
     
