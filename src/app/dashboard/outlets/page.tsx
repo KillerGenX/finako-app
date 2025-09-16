@@ -18,7 +18,7 @@ export default async function OutletsPage() {
 
     const { data: { user } } = await supabase.auth.getUser();
     
-    let outlets = [];
+    let outlets: { id: any; name: any; address: any; phone_number: any; location_types: any; }[] = [];
     if (user) {
         const { data: member } = await supabase.from('organization_members').select('organization_id').eq('user_id', user.id).single();
         if (member) {
