@@ -3,23 +3,8 @@
 import { useState, useEffect, useTransition } from 'react';
 import { Eye, X, Search, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { TransactionHistoryItem, getTransactionHistory, HistoryQueryResult } from './actions';
-import { ReceiptManager } from '@/components/shared/ReceiptManager';
 import { useDebounce } from '@/lib/hooks/useDebounce';
-
-// Modal untuk menampilkan detail struk
-function ViewReceiptModal({ transactionId, onClose }: { transactionId: string, onClose: () => void }) {
-    return (
-        <div className="fixed inset-0 bg-black/60 z-50 flex justify-center items-center p-4">
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-lg flex flex-col relative">
-                <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center">
-                    <h2 className="text-lg font-semibold">Detail Transaksi</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><X size={24} /></button>
-                </div>
-                <div className="p-4 overflow-y-auto max-h-[80vh]"><ReceiptManager transactionId={transactionId} /></div>
-            </div>
-        </div>
-    );
-}
+import { ViewReceiptModal } from './ViewReceiptModal'; // Impor modal dari file barunya
 
 export function HistoryClient({ initialData }: { initialData: HistoryQueryResult }) {
     const [result, setResult] = useState(initialData);
@@ -36,17 +21,16 @@ export function HistoryClient({ initialData }: { initialData: HistoryQueryResult
 
     // Efek untuk mengambil data KETIKA FILTER UTAMA (pencarian, tanggal) BERUBAH
     useEffect(() => {
-        // PERBAIKAN: Reset ke halaman 1 setiap kali filter utama berubah
         if (page !== 1) {
             setPage(1);
-            return; // Biarkan efek selanjutnya yang mengambil data
+            return;
         }
         startTransition(async () => {
             const filters = {
                 search: debouncedSearch,
                 startDate: dateRange.from,
                 endDate: dateRange.to,
-                page: 1, // Selalu ambil halaman 1 saat filter utama berubah
+                page: 1,
                 pageSize: pageSize
             };
             const newData = await getTransactionHistory(filters);
@@ -56,7 +40,6 @@ export function HistoryClient({ initialData }: { initialData: HistoryQueryResult
 
     // Efek terpisah HANYA untuk mengambil data KETIKA HALAMAN (page) BERUBAH
     useEffect(() => {
-        // Jangan jalankan saat komponen pertama kali mount jika kita sudah di halaman 1
         if (page === 1 && result.data.length > 0 && !debouncedSearch && !dateRange.from && !dateRange.to) return;
 
         startTransition(async () => {

@@ -1,6 +1,6 @@
 # Dokumentasi Aplikasi Finako
 
-Versi: 1.7
+Versi: 1.9
 Tanggal Pembaruan: [Tanggal Hari Ini]
 
 ---
@@ -23,59 +23,41 @@ Finako adalah aplikasi Point of Sale (POS) berbasis SaaS (Software as a Service)
 
 ### **Fase Pengembangan**
 
-#### **Fase 1-8: Fondasi, Produk, & Inventaris - Selesai**
-Fase-fase awal berfokus pada penyiapan proyek, otentikasi, implementasi modul produk yang komprehensif (termasuk tipe `SINGLE`, `VARIANT`, `COMPOSITE`, `SERVICE`), dan fungsionalitas inti manajemen stok (penyesuaian, transfer, dll.). Sistem juga diperkuat dengan perhitungan HPP otomatis dan keamanan multi-tenancy.
+#### **Fase 1-10: Fondasi, POS, & Arsitektur Modular - Selesai**
+Fase-fase awal berfokus pada penyiapan proyek, otentikasi, modul produk yang komprehensif, fungsionalitas inti manajemen stok, dan penyempurnaan modul POS. Puncaknya adalah refactor arsitektur struk/invoice menjadi komponen modular yang dapat digunakan kembali.
 
 ---
 
-#### **Fase 9: Penyempurnaan & Kelengkapan Modul POS - Selesai**
-Fase ini mengubah halaman POS dasar menjadi alat kasir yang matang dan profesional dengan logika bisnis yang kompleks dan akurat.
+#### **Fase 11: Pendalaman Modul CRM - Selesai**
+Fase ini memperdalam modul CRM untuk memberikan wawasan bisnis yang nyata.
 **Pencapaian Utama:**
-- **Arsitektur Data Cerdas:** Membuat RPC `get_pos_data` untuk memuat produk yang relevan dengan stok outlet.
-- **Kalkulasi Keranjang yang Akurat:** Mengimplementasikan logika pajak inklusif/eksklusif dan diskon per-item/per-transaksi.
-- **Alur Pembayaran Profesional:** Membangun Modal Pembayaran yang fungsional.
-- **Penyimpanan Data Transaksi yang Lengkap:** Memperbarui RPC `create_new_sale` untuk menyimpan semua detail transaksi.
-- **Perbaikan UX & Bug Kritis:** Memperbaiki penamaan produk varian, menambahkan filter, dan mengatasi berbagai bug.
-
----
-
-#### **Fase 10: Arsitektur Struk Modular & Fondasi CRM - Selesai**
-Fase ini berfokus pada pengalaman pasca-transaksi dan membangun fondasi yang kokoh dan dapat digunakan kembali untuk fitur-fitur masa depan.
-**Pencapaian Utama:**
-- **Refactor Arsitektur Struk:**
-    - Memisahkan komponen struk menjadi komponen "pintar" (`ReceiptManager`) untuk logika dan komponen "bodoh" (`TransactionReceipt`, `InvoiceView`) untuk tampilan.
-    - Arsitektur ini memungkinkan satu sumber kebenaran untuk desain struk, sehingga mudah dirawat dan diperbarui.
-- **Implementasi Multi-Template:**
-    - Membuat dua template visual: struk thermal standar dan invoice/faktur formal.
-    - Pengguna dapat beralih antara dua tampilan ini secara *real-time*.
-- **Fungsionalitas Cetak yang Andal:**
-    - Mengimplementasikan metode cetak berbasis CSS `@media print` yang terenkapsulasi di dalam komponen.
-    - Memastikan hasil cetak (termasuk warna) identik dengan yang ditampilkan di layar (WYSIWYG).
-- **Fondasi CRM di POS:**
-    - Menambahkan UI `CustomerSelector` di halaman kasir.
-    - Memperbarui alur transaksi dari frontend hingga backend (RPC `create_new_sale_v5`) untuk dapat menautkan transaksi ke seorang pelanggan.
-- **Peningkatan Konsistensi UI:** Memperbaiki tampilan nama kasir di halaman POS agar konsisten menggunakan nama lengkap dari profil, bukan email.
+- **Manajemen Pelanggan Penuh:** Mengimplementasikan fungsionalitas CRUD (Create, Read, Update, Delete) yang lengkap di halaman manajemen pelanggan.
+- **Halaman Detail Pelanggan:** Membuat halaman dinamis (`/customers/[customerId]`) yang menampilkan:
+    - Profil lengkap pelanggan.
+    - Statistik kunci (Total Belanja, Kunjungan Terakhir, dll.).
+    - Riwayat transaksi pelanggan dengan fitur pencarian dan paginasi.
+- **Interaksi Digital:** Mengimplementasikan fitur kirim struk/invoice ke WhatsApp melalui halaman web publik yang unik.
 
 ---
 
 ### **Peta Jalan & Rencana Pengembangan**
 
-#### **Fase 11: Interaktivitas & Ekspor Digital - Selanjutnya**
-Membangun di atas fondasi struk modular yang telah dibuat, fase ini akan fokus pada interaksi pelanggan dan menyediakan cara mudah untuk berbagi struk secara digital.
+#### **Fase 12: Pendalaman Modul Outlet & Inventaris - Selanjutnya**
+Setelah modul CRM menjadi matang, fokus selanjutnya adalah mengubah modul Outlet dari sekadar daftar alamat menjadi *dashboard operasional* untuk setiap lokasi bisnis, yang menjadi dasar untuk manajemen inventaris multi-lokasi.
 **Rencana Aksi:**
-- **Fitur Kirim Struk/Invoice ke WhatsApp:**
-    - **Pilihan 1 (Teks):** Membuat fungsi yang menghasilkan ringkasan transaksi dalam format teks yang rapi dan terstruktur, lalu membukanya di aplikasi WhatsApp pengguna melalui tautan `wa.me`.
-    - **Pilihan 2 (Gambar):** Mengimplementasikan library di sisi klien (seperti `html-to-image`) untuk mengubah komponen JSX struk/invoice menjadi gambar (PNG/JPEG). Gambar ini kemudian dapat dibagikan atau diunduh.
-    - Menambahkan tombol "Kirim via WA" di `ReceiptManager` yang akan memicu fungsionalitas ini.
-- **Melengkapi Fungsionalitas CRM di POS:**
-    - Membangun logika penuh untuk modal `CustomerSelector` yang saat ini masih placeholder.
-    - Membuat Server Action untuk mencari pelanggan berdasarkan nama/nomor telepon.
-    - Membuat Server Action untuk menambah pelanggan baru dengan cepat melalui form di dalam modal.
+- **Halaman Detail Outlet:**
+    - Membuat halaman dinamis baru (`/dashboard/outlets/[outletId]`).
+    - Menampilkan informasi lengkap outlet, termasuk peta interaktif.
+    - **Fitur Kunci:** Menampilkan daftar **inventaris dan jumlah stok** untuk semua produk yang ada di outlet tersebut.
+    - Menampilkan riwayat transaksi yang terjadi spesifik di outlet tersebut.
+- **RPC & Server Actions:** Membangun backend yang diperlukan untuk mengambil data komprehensif ini secara efisien.
 
 ---
 
 #### **Ide untuk Masa Depan**
 
-1.  **Fitur Inventaris Cerdas:** Alur Kerja Stok Opname Terpandu & Laporan Inventaris Lanjutan.
-2.  **Modul Skala Lebih Besar:** Manajemen Pemasok & Pesanan Pembelian, Laporan Penjualan Lanjutan & CRM Penuh.
-3.  **Halaman Riwayat Transaksi:** Halaman khusus untuk melihat daftar semua transaksi, dengan kemampuan untuk membuka kembali dan mencetak ulang struk/invoice menggunakan `ReceiptManager`.
+1.  **Manajemen Stok Lanjutan:** Mengimplementasikan fitur **Transfer Stok** antar-outlet.
+2.  **Segmentasi Pelanggan:** Menambahkan fitur grup dan label (misal: VIP, Reseller) untuk keperluan marketing.
+3.  **Impor/Ekspor Data:** Memungkinkan pengguna untuk mengimpor/ekspor daftar pelanggan.
+4.  **Fitur Inventaris Cerdas:** Alur Kerja Stok Opname Terpandu & Laporan Inventaris Lanjutan.
+5.  **Modul Skala Lebih Besar:** Manajemen Pemasok & Pesanan Pembelian, Laporan Penjualan Lanjutan.

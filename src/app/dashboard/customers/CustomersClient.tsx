@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect } from 'react';
 import { Search, Plus, X, Loader2 } from 'lucide-react';
+import Link from 'next/link'; // Impor Link
 import { useDebounce } from '@/lib/hooks/useDebounce';
 
 // Tipe data untuk Pelanggan
@@ -121,7 +122,7 @@ export function CustomersClient({ initialCustomers, serverActions }: {
             {modalState.isOpen && <CustomerModal customer={modalState.customer} onClose={() => setModalState({ isOpen: false, customer: null })} onSave={handleSave} isSaving={isPending} />}
             
             {confirmDelete && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center">
+                <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4">
                     <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm">
                         <h3 className="font-bold text-lg">Konfirmasi Hapus</h3>
                         <p className="py-4">Anda yakin ingin menghapus pelanggan "{confirmDelete.name}"? Tindakan ini tidak dapat dibatalkan.</p>
@@ -157,7 +158,11 @@ export function CustomersClient({ initialCustomers, serverActions }: {
                     <tbody>
                         {customers.map(c => (
                             <tr key={c.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
-                                <td className="p-4 font-semibold">{c.name}</td>
+                                <td className="p-4 font-semibold">
+                                    <Link href={`/dashboard/customers/${c.id}`} className="hover:underline text-teal-600">
+                                        {c.name}
+                                    </Link>
+                                </td>
                                 <td className="p-4 hidden md:table-cell">
                                     <div>{c.phone_number}</div>
                                     <div className="text-xs text-gray-500">{c.email}</div>
