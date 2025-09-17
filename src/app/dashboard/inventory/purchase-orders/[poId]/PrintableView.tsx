@@ -13,8 +13,7 @@ export function PrintableView({ details }: PrintableViewProps) {
     const formatCurrency = (amount: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(amount);
     
     const totalCost = details.items.reduce((acc, item) => acc + (item.quantity * item.unit_cost), 0);
-
-    // PERBAIKAN: Menambahkan logika "pintar" untuk judul dokumen
+    
     const getDocumentTitle = () => {
         switch (details.status) {
             case 'draft': return 'DRAFT PURCHASE ORDER';
@@ -35,7 +34,6 @@ export function PrintableView({ details }: PrintableViewProps) {
                     <p className="text-sm">Pesanan Pembelian</p>
                 </div>
                 <div className="text-right">
-                    {/* PERBAIKAN: Menggunakan judul dinamis */}
                     <h2 className="text-2xl font-bold">{getDocumentTitle()}</h2>
                     <p className="text-sm font-mono">{details.po_number}</p>
                 </div>
@@ -85,6 +83,14 @@ export function PrintableView({ details }: PrintableViewProps) {
                 </tfoot>
             </table>
             
+            {/* PERBAIKAN: Catatan hanya muncul jika ada isinya */}
+            {details.notes && (
+                <div className="text-sm mt-8">
+                    <p className="font-semibold">Catatan:</p>
+                    <p className="p-2 border bg-gray-50 rounded whitespace-pre-wrap">{details.notes}</p>
+                </div>
+            )}
+
             {/* Tanda Tangan */}
             <div className="grid grid-cols-2 gap-8 mt-16 text-center text-sm">
                 <div>

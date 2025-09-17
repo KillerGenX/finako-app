@@ -1,44 +1,29 @@
--- Supabase RPC Function: create_purchase_order_draft
+-- Supabase RPC Function: create_purchase_order_draft (v2)
 -- =================================================================
 --
 --  Tujuan: 
---  Membuat dokumen Purchase Order (PO) baru dalam status 'draft'.
+--  Memperbarui RPC untuk dapat menerima tanggal perkiraan tiba (opsional).
 --
---  Fitur Utama:
---  1.  Nomor Unik: Menghasilkan nomor PO berurutan (misal: PO-2405-0001).
---  2.  Transaksi Aman: Menyimpan header dan item dalam satu operasi.
+--  Pembaruan:
+--  -   Menambahkan parameter opsional `p_expected_delivery_date`.
+--  -   Memperbarui statement INSERT untuk menyimpan tanggal tersebut.
 --
 --  Instruksi: Jalankan skrip ini di SQL Editor Supabase Anda.
 --
 -- =================================================================
 
--- 1. Buat Tipe data custom untuk item yang akan dipesan
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'po_item_type') THEN
-        CREATE TYPE public.po_item_type AS (
-            variant_id UUID,
-            quantity NUMERIC,
-            unit_cost NUMERIC
-        );
-    END IF;
-END$$;
+-- Tipe dan Sequence tidak perlu dibuat ulang jika sudah ada dari v1
 
-
--- 2. Buat Sequence untuk nomor PO unik
-CREATE SEQUENCE IF NOT EXISTS purchase_order_seq;
-
-
--- 3. Buat Fungsi RPC utama
 CREATE OR REPLACE FUNCTION public.create_purchase_order_draft(
     p_organization_id UUID,
     p_supplier_id UUID,
     p_outlet_id UUID,
     p_created_by UUID,
     p_notes TEXT,
-    p_items public.po_item_type[]
+    p_items public.po_item_type[],
+    p_expected_delivery_date DATE DEFAULT NULL -- Parameter baru
 )
-RETURNS UUID -- Mengembalikan ID PO yang baru dibuat
+RETURNS UUID
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
@@ -58,7 +43,8 @@ BEGIN
         outlet_id, 
         created_by, 
         notes, 
-        status
+        status,
+        expected_delivery_date -- Tambahkan kolom baru
     ) VALUES (
         p_organization_id,
         v_po_number,
@@ -66,7 +52,8 @@ BEGIN
         p_outlet_id,
         p_created_by,
         p_notes,
-        'draft'
+        'draft',
+        p_expected_delivery_date -- Simpan nilai dari parameter
     ) RETURNING id INTO v_new_po_id;
 
     -- Masukkan setiap item ke dalam tabel `purchase_order_items`
