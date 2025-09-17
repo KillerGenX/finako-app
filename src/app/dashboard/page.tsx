@@ -54,7 +54,7 @@ const modules = [
         icon: Users,
         title: "Manajemen Pelanggan",
         description: "Bangun database pelanggan Anda, lacak riwayat pembelian, dan kelola hubungan.",
-        href: "#"
+        href: "/dashboard/customers"
     },
     {
         icon: BookText,
