@@ -26,11 +26,12 @@ const Sidebar = () => {
             { href: "/dashboard/pos", icon: ShoppingCart, label: "Transaksi" },
             { href: "/dashboard/history", icon: History, label: "Riwayat" },
             { href: "/dashboard/products", icon: Package, label: "Produk" },
-            { href: "/dashboard/inventory", icon: Warehouse, label: "Inventaris" },
             { href: "/dashboard/categories", icon: Folder, label: "Kategori" },
+            { href: "/dashboard/inventory", icon: Warehouse, label: "Inventaris" },
+            { href: "/dashboard/suppliers", icon: Truck, label: "Pemasok" }, // Tambahkan menu Pemasok
             { href: "/dashboard/customers", icon: Users, label: "Pelanggan" },
             { href: "/dashboard/outlets", icon: Store, label: "Outlet" },
-            { href: "/dashboard/suppliers", icon: Truck, label: "Pemasok" }, // Tambahkan menu Pemasok
+            
         ],
         [
             { href: "/dashboard/reports", icon: LineChart, label: "Laporan" },

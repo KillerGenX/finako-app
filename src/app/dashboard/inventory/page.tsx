@@ -1,7 +1,7 @@
 // src/app/dashboard/inventory/page.tsx
 
 import Link from 'next/link';
-import { Move, BarChart3, FileText } from 'lucide-react'; // Ganti ikon
+import { Move, BarChart3, FileText } from 'lucide-react';
 
 export default function InventoryDashboardPage() {
     return (
@@ -24,7 +24,7 @@ export default function InventoryDashboardPage() {
                     </div>
                 </Link>
 
-                {/* Kartu untuk Laporan Stok (Sekarang aktif) */}
+                {/* Kartu untuk Laporan Stok */}
                 <Link href="/dashboard/inventory/stock-report" className="block p-6 bg-white dark:bg-gray-800 rounded-lg border hover:shadow-lg transition-shadow">
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
@@ -37,18 +37,18 @@ export default function InventoryDashboardPage() {
                     </div>
                 </Link>
 
-                {/* Kartu untuk fitur masa depan, contohnya Purchase Order */}
-                <div className="p-6 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-dashed">
-                     <div className="flex items-center gap-4 opacity-50">
-                        <div className="p-3 bg-gray-200 dark:bg-gray-700 rounded-lg">
-                            <FileText className="h-6 w-6 text-gray-500" />
+                {/* Kartu untuk Pesanan Pembelian (Sekarang Aktif) */}
+                 <Link href="/dashboard/inventory/purchase-orders" className="block p-6 bg-white dark:bg-gray-800 rounded-lg border hover:shadow-lg transition-shadow">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-purple-100 dark:bg-purple-900 rounded-lg">
+                            <FileText className="h-6 w-6 text-purple-600" />
                         </div>
                         <div>
                             <h2 className="text-lg font-semibold">Pesanan Pembelian</h2>
-                            <p className="text-sm text-gray-500">(Segera Hadir)</p>
+                            <p className="text-sm text-gray-500">Buat Purchase Order (PO) ke pemasok.</p>
                         </div>
                     </div>
-                </div>
+                </Link>
 
             </div>
         </div>
