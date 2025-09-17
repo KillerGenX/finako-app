@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Printer, CheckCircle, Loader2 } from 'lucide-react';
 import { StockOpnameDetails, saveOpnameItems, completeStockOpname, OpnameItemUpdate } from './actions';
 import { useDebounce } from '@/lib/hooks/useDebounce';
+import { CountingSheetView } from './CountingSheetView';
+import { ResultSheetView } from './ResultSheetView'; // Impor laporan hasil
 
 // --- Komponen-komponen Kecil ---
 const InfoItem = ({ label, value }: { label: string; value: React.ReactNode }) => (
@@ -28,7 +30,6 @@ export function StockOpnameDetailClient({ initialDetails }: { initialDetails: St
     const [updatedItems, setUpdatedItems] = useState<Map<string, number>>(new Map());
     const debouncedItems = useDebounce(updatedItems, 1000);
     
-    // PERBAIKAN: State untuk modal konfirmasi
     const [confirmComplete, setConfirmComplete] = useState(false);
     
     useEffect(() => { setDetails(initialDetails); }, [initialDetails]);
@@ -66,6 +67,10 @@ export function StockOpnameDetailClient({ initialDetails }: { initialDetails: St
         });
     };
 
+    const handlePrint = () => {
+        window.print();
+    };
+
     const formatDate = (dateString: string | null) => dateString ? new Date(dateString).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '-';
 
     if (!details) return null;
@@ -73,74 +78,75 @@ export function StockOpnameDetailClient({ initialDetails }: { initialDetails: St
 
     return (
         <div className="w-full">
-             {confirmComplete && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm shadow-xl">
-                        <h3 className="font-bold text-lg">Konfirmasi Penyelesaian</h3>
-                        <p className="py-4">Anda yakin ingin menyelesaikan Stok Opname ini? Stok akan disesuaikan secara permanen. Proses ini tidak dapat dibatalkan.</p>
-                        <div className="flex justify-end gap-2">
-                            <button onClick={() => setConfirmComplete(false)} className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-600">Batal</button>
-                            <button onClick={handleComplete} disabled={isCompleting} className="px-4 py-2 rounded bg-green-600 text-white disabled:bg-gray-400">
-                                {isCompleting ? <Loader2 className="animate-spin" /> : 'Ya, Selesaikan'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-             
-             <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
-                <div>
-                    <Link href="/dashboard/inventory/stock-opname" className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-2">
-                        <ArrowLeft size={18} /> Kembali ke Daftar Opname
-                    </Link>
-                    <h1 className="text-2xl font-bold">Detail Stok Opname #{details.opname_number}</h1>
-                </div>
-                <div className="flex items-center gap-2">
-                    <button className="bg-gray-200 px-4 py-2 rounded-lg flex items-center gap-2"><Printer size={18} /> Cetak Lembar Hitung</button>
-                    {!isCompleted && (
-                        <button onClick={() => setConfirmComplete(true)} disabled={isCompleting || isSaving} className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:bg-gray-400">
-                             {isCompleting ? <Loader2 className="animate-spin" /> : <CheckCircle size={18} />} Selesaikan Opname
-                        </button>
-                    )}
-                </div>
-            </div>
-            
-            <div className="p-6 bg-white dark:bg-gray-800/50 rounded-lg border mb-6">
-                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                    <InfoItem label="Status" value={<StatusBadge status={details.status} />} />
-                    <InfoItem label="Outlet" value={details.outlet.name} />
-                    <InfoItem label="Dibuat Oleh" value={details.created_by || 'Sistem'} />
-                    <InfoItem label="Tgl. Selesai" value={formatDate(details.completed_at)} />
-                </div>
+             {/* --- Area Cetak (Tersembunyi) --- */}
+            <div className="printable-area">
+                {details.status === 'counting' ? (
+                    <CountingSheetView details={details} />
+                ) : (
+                    <ResultSheetView details={details} />
+                )}
             </div>
 
-             <div className="border rounded-lg w-full bg-white dark:bg-gray-800/50">
-                <table className="w-full text-sm">
-                    <thead><tr className="border-b">
-                        <th className="p-4 text-left font-medium">Produk</th>
-                        <th className="p-4 text-right font-medium">Jml. Sistem</th>
-                        <th className="p-4 text-right font-medium">Jml. Fisik</th>
-                        <th className="p-4 text-right font-medium">Selisih</th>
-                    </tr></thead>
-                    <tbody>
-                        {details.items.map(item => (
-                            <tr key={item.id} className="border-b">
-                                <td className="p-4 font-semibold">{item.name}<p className="text-xs text-gray-500">{item.sku}</p></td>
-                                <td className="p-4 text-right font-mono">{item.system_quantity}</td>
-                                <td className="p-4 text-right">
-                                    <input type="number" defaultValue={item.physical_quantity ?? ''} onChange={e => handleQuantityChange(item.id, e.target.value)} placeholder="-" disabled={isCompleted} className="w-24 p-1 border rounded text-center bg-transparent disabled:bg-gray-100 dark:disabled:bg-gray-700" />
-                                </td>
-                                <td className={`p-4 text-right font-mono font-bold ${item.difference === 0 ? '' : item.difference && item.difference > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {item.physical_quantity !== null ? (item.difference! > 0 ? '+' : '') + item.difference : '-'}
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-             </div>
-             <div className="text-right text-xs mt-2 text-gray-500 italic">
-                {isSaving && "Menyimpan perubahan..."}
-             </div>
+            <div className="no-print">
+                {confirmComplete && (
+                    <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4">
+                        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm shadow-xl">
+                            <h3 className="font-bold text-lg">Konfirmasi Penyelesaian</h3>
+                            <p className="py-4">Anda yakin ingin menyelesaikan Stok Opname ini? Stok akan disesuaikan secara permanen.</p>
+                            <div className="flex justify-end gap-2">
+                                <button onClick={() => setConfirmComplete(false)} className="px-4 py-2 rounded bg-gray-200">Batal</button>
+                                <button onClick={handleComplete} disabled={isCompleting} className="px-4 py-2 rounded bg-green-600 text-white">{isCompleting ? <Loader2 className="animate-spin" /> : 'Ya, Selesaikan'}</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                
+                <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
+                    <div>
+                        <Link href="/dashboard/inventory/stock-opname" className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-2"><ArrowLeft size={18} /> Kembali ke Daftar Opname</Link>
+                        <h1 className="text-2xl font-bold">Detail Stok Opname #{details.opname_number}</h1>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button onClick={handlePrint} className="bg-gray-200 px-4 py-2 rounded-lg flex items-center gap-2">
+                            <Printer size={18} /> 
+                            {details.status === 'counting' ? 'Cetak Lembar Hitung' : 'Cetak Laporan Hasil'}
+                        </button>
+                        {!isCompleted && (
+                            <button onClick={() => setConfirmComplete(true)} disabled={isCompleting || isSaving} className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:bg-gray-400">
+                                {isCompleting ? <Loader2 className="animate-spin" /> : <CheckCircle size={18} />} Selesaikan Opname
+                            </button>
+                        )}
+                    </div>
+                </div>
+                
+                <div className="p-6 bg-white dark:bg-gray-800/50 rounded-lg border mb-6">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6"><InfoItem label="Status" value={<StatusBadge status={details.status} />} /><InfoItem label="Outlet" value={details.outlet.name} /><InfoItem label="Dibuat Oleh" value={details.created_by || 'Sistem'} /><InfoItem label="Tgl. Selesai" value={formatDate(details.completed_at)} /></div>
+                </div>
+
+                <div className="border rounded-lg w-full bg-white dark:bg-gray-800/50">
+                    <table className="w-full text-sm">
+                        <thead><tr className="border-b">
+                            <th className="p-4 text-left font-medium">Produk</th>
+                            <th className="p-4 text-right font-medium">Jml. Sistem</th>
+                            <th className="p-4 text-right font-medium">Jml. Fisik</th>
+                            <th className="p-4 text-right font-medium">Selisih</th>
+                        </tr></thead>
+                        <tbody>
+                            {details.items.map(item => (<tr key={item.id} className="border-b"><td className="p-4 font-semibold">{item.name}<p className="text-xs text-gray-500">{item.sku}</p></td><td className="p-4 text-right font-mono">{item.system_quantity}</td><td className="p-4 text-right"><input type="number" defaultValue={item.physical_quantity ?? ''} onChange={e => handleQuantityChange(item.id, e.target.value)} placeholder="-" disabled={isCompleted} className="w-24 p-1 border rounded text-center bg-transparent disabled:bg-gray-100 dark:disabled:bg-gray-700" /></td><td className={`p-4 text-right font-mono font-bold ${item.difference === 0 ? '' : item.difference && item.difference > 0 ? 'text-green-600' : 'text-red-600'}`}>{item.physical_quantity !== null ? (item.difference! > 0 ? '+' : '') + item.difference : '-'}</td></tr>))}
+                        </tbody>
+                    </table>
+                </div>
+                <div className="text-right text-xs mt-2 text-gray-500 italic">{isSaving && "Menyimpan perubahan..."}</div>
+            </div>
+
+            <style jsx global>{`
+                @media print {
+                    body * { visibility: hidden; }
+                    .printable-area, .printable-area * { visibility: visible; }
+                    .printable-area { position: absolute; left: 0; top: 0; width: 100%; height: auto; }
+                    .no-print { display: none !important; }
+                }
+            `}</style>
         </div>
     );
 }

@@ -1,6 +1,6 @@
 # Dokumentasi Aplikasi Finako
 
-Versi: 2.2
+Versi: 2.3
 Tanggal Pembaruan: [Tanggal Hari Ini]
 
 ---
@@ -18,17 +18,18 @@ Fase-fase awal hingga menengah berfokus pada pembangunan semua modul inti aplika
 
 ---
 
-### **Peta Jalan & Rencana Pengembangan**
-
-#### **Fase 16: Formalisasi Alur Kerja Penyesuaian Stok - Selanjutnya**
+#### **Fase 16: Formalisasi Alur Kerja Penyesuaian Stok - Sedang Berlangsung**
 Setelah alur kerja utama (Masuk, Pindah, Keluar) selesai, fase ini akan menggantikan fitur "Atur Stok" yang ambigu dengan alur kerja formal yang didedikasikan untuk setiap jenis penyesuaian manual.
-**Rencana Aksi:**
-- **Membuat Tiga Modul Penyesuaian Baru:**
-    - **Stok Opname:** Antarmuka untuk memasukkan hasil perhitungan stok fisik. Sistem akan secara otomatis menghitung selisih dan membuat penyesuaian.
-    - **Barang Rusak/Hilang:** Formulir untuk mencatat dan mengurangi stok untuk item yang rusak, kedaluwarsa, atau hilang.
-    - **Penerimaan Non-PO:** Formulir untuk mencatat penerimaan barang sederhana yang tidak memerlukan PO formal (misalnya, sampel dari pemasok).
-- **Menambahkan Kartu Navigasi:** Menempatkan ketiga fitur baru ini sebagai kartu di halaman utama Dashboard Inventaris.
-- **Menghapus Fitur Lama:** Setelah fitur-fitur baru ini berfungsi, **hapus halaman "Atur Stok"** (`/inventory/[variantId]`) dan tombol-tombol terkait untuk menciptakan alur kerja yang bersih dan tidak ambigu.
+**Status & Rencana Aksi:**
+- **[SELESAI] Stok Opname:**
+    - Membuat alur kerja penuh dari pembuatan sesi, input hasil, hingga penyelesaian yang menyesuaikan stok.
+    - Mengimplementasikan fitur cetak dua tahap: "Lembar Hitung" dan "Laporan Hasil".
+- **[SELANJUTNYA] Barang Rusak/Hilang:**
+    - Membuat formulir untuk mencatat dan mengurangi stok untuk item yang rusak, kedaluwarsa, atau hilang, lengkap dengan dokumen yang bisa dicetak.
+- **[SELANJUTNYA] Penerimaan Non-PO:**
+    - Membuat formulir untuk mencatat penerimaan barang sederhana yang tidak memerlukan PO formal, lengkap dengan dokumen yang bisa dicetak.
+- **[FINAL] Menghapus Fitur Lama:**
+    - Setelah dua fitur di atas selesai, hapus tombol  "Atur Stok" dihalaman produk (`/inventory/[variantId]`) dan buat tombol aksi cepat menuju halaman inventaris sesuai dengan kebutuhan nya,seperti po,transfer,dll.
 
 ---
 
