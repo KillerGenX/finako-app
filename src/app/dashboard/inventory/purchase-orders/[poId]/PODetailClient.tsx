@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Printer, Send, XCircle, Loader2, CheckCircle, PackagePlus } from 'lucide-react';
 import { PurchaseOrderDetails, cancelPurchaseOrder, orderPurchaseOrder, receivePurchaseOrderItems, ReceivedItem } from './actions';
+import { PrintableView } from './PrintableView'; // Impor komponen cetak baru
 
 // --- Komponen Modal Penerimaan Barang ---
 function ReceiveItemsModal({ details, onClose, onReceive, isReceiving }: {
@@ -13,14 +14,13 @@ function ReceiveItemsModal({ details, onClose, onReceive, isReceiving }: {
     onReceive: (items: ReceivedItem[]) => void;
     isReceiving: boolean;
 }) {
+    // ... (kode modal tidak berubah)
     const [receivedItems, setReceivedItems] = useState<Map<string, number>>(new Map());
-
     const handleQuantityChange = (itemId: string, value: string, max: number) => {
         const numValue = parseInt(value, 10);
         const newQty = isNaN(numValue) ? 0 : Math.min(Math.max(0, numValue), max);
         setReceivedItems(prev => new Map(prev).set(itemId, newQty));
     };
-
     const handleSubmit = () => {
         const itemsToSubmit: ReceivedItem[] = [];
         receivedItems.forEach((qty, id) => {
@@ -30,7 +30,6 @@ function ReceiveItemsModal({ details, onClose, onReceive, isReceiving }: {
         });
         onReceive(itemsToSubmit);
     };
-
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl">
@@ -47,21 +46,14 @@ function ReceiveItemsModal({ details, onClose, onReceive, isReceiving }: {
                             <tbody>
                                 {details?.items.map(item => {
                                     const remaining = item.quantity - item.received_quantity;
-                                    if (remaining <= 0) return null; // Sembunyikan jika sudah diterima penuh
+                                    if (remaining <= 0) return null;
                                     return (
                                         <tr key={item.id} className="border-t">
                                             <td className="p-2">{item.name}</td>
                                             <td className="p-2 text-center">{item.quantity}</td>
                                             <td className="p-2 text-center">{item.received_quantity}</td>
                                             <td className="p-2 text-center">
-                                                <input 
-                                                    type="number" 
-                                                    className="w-24 p-1 border rounded text-center" 
-                                                    max={remaining}
-                                                    min="0"
-                                                    placeholder="0"
-                                                    onChange={e => handleQuantityChange(item.id, e.target.value, remaining)}
-                                                />
+                                                <input type="number" className="w-24 p-1 border rounded text-center" max={remaining} min="0" placeholder="0" onChange={e => handleQuantityChange(item.id, e.target.value, remaining)} />
                                             </td>
                                         </tr>
                                     );
@@ -89,10 +81,8 @@ const InfoItem = ({ label, value }: { label: string; value: React.ReactNode }) =
 const StatusBadge = ({ status }: { status: string }) => {
     const baseClasses = "px-3 py-1 text-sm font-semibold rounded-full inline-block";
     const statusMap: { [key: string]: string } = {
-        draft: "bg-gray-100 text-gray-800",
-        ordered: "bg-blue-100 text-blue-800",
-        partially_received: "bg-yellow-100 text-yellow-800",
-        completed: "bg-green-100 text-green-800",
+        draft: "bg-gray-100 text-gray-800", ordered: "bg-blue-100 text-blue-800",
+        partially_received: "bg-yellow-100 text-yellow-800", completed: "bg-green-100 text-green-800",
         cancelled: "bg-red-100 text-red-800",
     };
     return <span className={`${baseClasses} ${statusMap[status] || 'bg-gray-100'}`}>{status}</span>;
@@ -125,21 +115,18 @@ export function PODetailClient({ initialDetails }: { initialDetails: PurchaseOrd
     };
     
     const handleReceiveItems = (items: ReceivedItem[]) => {
-        if (items.length === 0) {
-            setIsReceiving(false);
-            return;
-        }
+        if (items.length === 0) { setIsReceiving(false); return; }
         startTransition(async () => {
             const result = await receivePurchaseOrderItems(details!.id, items);
-            if (result.success) {
-                setIsReceiving(false);
-                router.refresh();
-            } else {
-                alert(`Error: ${result.message}`);
-                setIsReceiving(false);
-            }
+            if (result.success) { setIsReceiving(false); router.refresh(); } 
+            else { alert(`Error: ${result.message}`); setIsReceiving(false); }
         });
     }
+    
+    // Aktifkan fungsi cetak
+    const handlePrint = () => {
+        window.print();
+    };
 
     const formatDate = (dateString: string | null) => dateString ? new Date(dateString).toLocaleDateString('id-ID', {day: '2-digit', month: 'long', year: 'numeric'}) : '-';
     const formatCurrency = (amount: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(amount);
@@ -154,55 +141,62 @@ export function PODetailClient({ initialDetails }: { initialDetails: PurchaseOrd
 
     return (
         <div className="w-full">
-            {confirmCancel && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm shadow-xl">
-                        <h3 className="font-bold text-lg">Konfirmasi Pembatalan</h3>
-                        <p className="py-4">Anda yakin ingin membatalkan PO ini?</p>
-                        <div className="flex justify-end gap-2"><button onClick={() => setConfirmCancel(false)} className="px-4 py-2 rounded bg-gray-200">Tidak</button><button onClick={handleCancel} disabled={isPending} className="px-4 py-2 rounded bg-red-600 text-white">{isPending ? <Loader2 className="animate-spin" /> : 'Ya, Batalkan'}</button></div>
+            <div className="printable-area">
+                <PrintableView details={details} />
+            </div>
+
+            <div className="no-print">
+                {confirmCancel && (
+                    <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4">
+                        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm shadow-xl">
+                            <h3 className="font-bold text-lg">Konfirmasi Pembatalan</h3>
+                            <p className="py-4">Anda yakin ingin membatalkan PO ini?</p>
+                            <div className="flex justify-end gap-2"><button onClick={() => setConfirmCancel(false)} className="px-4 py-2 rounded bg-gray-200">Tidak</button><button onClick={handleCancel} disabled={isPending} className="px-4 py-2 rounded bg-red-600 text-white">{isPending ? <Loader2 className="animate-spin" /> : 'Ya, Batalkan'}</button></div>
+                        </div>
+                    </div>
+                )}
+                {isReceiving && <ReceiveItemsModal details={details} onClose={() => setIsReceiving(false)} onReceive={handleReceiveItems} isReceiving={isPending} />}
+
+                {/* Header */}
+                <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
+                    <div>
+                        <Link href="/dashboard/inventory/purchase-orders" className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-2"><ArrowLeft size={18} /> Kembali ke Daftar PO</Link>
+                        <h1 className="text-2xl font-bold">Detail Pesanan Pembelian #{details.po_number}</h1>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {canBeCancelled && <button onClick={() => setConfirmCancel(true)} disabled={isPending} className="bg-red-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50"><XCircle size={18} /> Batal</button>}
+                        {canBeOrdered && <button onClick={() => handleAction(orderPurchaseOrder)} disabled={isPending} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50"><Send size={18} /> Tandai Dipesan</button>}
+                        {canBeReceived && <button onClick={() => setIsReceiving(true)} disabled={isPending} className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50"><PackagePlus size={18} /> Terima Barang</button>}
+                        <button onClick={handlePrint} className="bg-gray-200 px-4 py-2 rounded-lg flex items-center gap-2"><Printer size={18} /> Cetak</button>
                     </div>
                 </div>
-            )}
-            {isReceiving && <ReceiveItemsModal details={details} onClose={() => setIsReceiving(false)} onReceive={handleReceiveItems} isReceiving={isPending} />}
-
-            {/* Header */}
-            <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
-                <div>
-                    <Link href="/dashboard/inventory/purchase-orders" className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-2"><ArrowLeft size={18} /> Kembali ke Daftar PO</Link>
-                    <h1 className="text-2xl font-bold">Detail Pesanan Pembelian #{details.po_number}</h1>
+                
+                {/* ... sisa komponen tidak berubah ... */}
+                <div className="p-6 bg-white dark:bg-gray-800/50 rounded-lg border mb-6">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        <InfoItem label="Status" value={<StatusBadge status={details.status} />} /><InfoItem label="Pemasok" value={details.supplier.name} /><InfoItem label="Tujuan" value={details.outlet.name} /><InfoItem label="Dibuat Oleh" value={details.created_by || 'Sistem'} /><InfoItem label="Tgl. Pesan" value={formatDate(details.order_date)} /><InfoItem label="Perkiraan Tiba" value={formatDate(details.expected_delivery_date)} />
+                    </div>
+                    {details.notes && <div className="mt-4"><InfoItem label="Catatan" value={details.notes} /></div>}
                 </div>
-                <div className="flex items-center gap-2">
-                    {canBeCancelled && <button onClick={() => setConfirmCancel(true)} disabled={isPending} className="bg-red-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50">{isPending ? <Loader2 className="animate-spin" /> : <XCircle size={18} />} Batal</button>}
-                    {canBeOrdered && <button onClick={() => handleAction(orderPurchaseOrder)} disabled={isPending} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50">{isPending ? <Loader2 className="animate-spin" /> : <Send size={18} />} Tandai Dipesan</button>}
-                    {canBeReceived && <button onClick={() => setIsReceiving(true)} disabled={isPending} className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50">{isPending ? <Loader2 className="animate-spin" /> : <PackagePlus size={18} />} Terima Barang</button>}
-                    <button className="bg-gray-200 px-4 py-2 rounded-lg flex items-center gap-2"><Printer size={18} /> Cetak</button>
+                <div className="border rounded-lg w-full bg-white dark:bg-gray-800/50">
+                    <table className="w-full text-sm">
+                        <thead><tr className="border-b"><th className="p-4 text-left font-medium">Produk</th><th className="p-4 text-right font-medium">Dipesan</th><th className="p-4 text-right font-medium">Diterima</th><th className="p-4 text-right font-medium">Harga Beli/Unit</th><th className="p-4 text-right font-medium">Subtotal</th></tr></thead>
+                        <tbody>
+                            {details.items.map(item => (<tr key={item.id} className="border-b"><td className="p-4 font-semibold">{item.name}<p className="text-xs text-gray-500">{item.sku}</p></td><td className="p-4 text-right font-mono">{item.quantity}</td><td className="p-4 text-right font-mono">{item.received_quantity}</td><td className="p-4 text-right font-mono">{formatCurrency(item.unit_cost)}</td><td className="p-4 text-right font-mono font-semibold">{formatCurrency(item.quantity * item.unit_cost)}</td></tr>))}
+                        </tbody>
+                        <tfoot className="font-bold"><tr><td colSpan={4} className="p-4 text-right">Total Biaya Keseluruhan</td><td className="p-4 text-right text-base">{formatCurrency(totalCost)}</td></tr></tfoot>
+                    </table>
                 </div>
             </div>
 
-            {/* Detail Info & Daftar Item */}
-            <div className="p-6 bg-white dark:bg-gray-800/50 rounded-lg border mb-6">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                    <InfoItem label="Status" value={<StatusBadge status={details.status} />} /><InfoItem label="Pemasok" value={details.supplier.name} /><InfoItem label="Tujuan" value={details.outlet.name} /><InfoItem label="Dibuat Oleh" value={details.created_by || 'Sistem'} /><InfoItem label="Tgl. Pesan" value={formatDate(details.order_date)} /><InfoItem label="Perkiraan Tiba" value={formatDate(details.expected_delivery_date)} />
-                </div>
-                {details.notes && <div className="mt-4"><InfoItem label="Catatan" value={details.notes} /></div>}
-            </div>
-            <div className="border rounded-lg w-full bg-white dark:bg-gray-800/50">
-                <table className="w-full text-sm">
-                    <thead><tr className="border-b"><th className="p-4 text-left font-medium">Produk</th><th className="p-4 text-right font-medium">Dipesan</th><th className="p-4 text-right font-medium">Diterima</th><th className="p-4 text-right font-medium">Harga Beli/Unit</th><th className="p-4 text-right font-medium">Subtotal</th></tr></thead>
-                    <tbody>
-                        {details.items.map(item => (
-                            <tr key={item.id} className="border-b">
-                                <td className="p-4 font-semibold">{item.name}<p className="text-xs text-gray-500">{item.sku}</p></td>
-                                <td className="p-4 text-right font-mono">{item.quantity}</td>
-                                <td className="p-4 text-right font-mono">{item.received_quantity}</td>
-                                <td className="p-4 text-right font-mono">{formatCurrency(item.unit_cost)}</td>
-                                <td className="p-4 text-right font-mono font-semibold">{formatCurrency(item.quantity * item.unit_cost)}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                    <tfoot className="font-bold"><tr><td colSpan={4} className="p-4 text-right">Total Biaya Keseluruhan</td><td className="p-4 text-right text-base">{formatCurrency(totalCost)}</td></tr></tfoot>
-                </table>
-            </div>
+             <style jsx global>{`
+                @media print {
+                    body * { visibility: hidden; }
+                    .printable-area, .printable-area * { visibility: visible; }
+                    .printable-area { position: absolute; left: 0; top: 0; width: 100%; height: auto; }
+                    .no-print { display: none !important; }
+                }
+            `}</style>
         </div>
     );
 }
