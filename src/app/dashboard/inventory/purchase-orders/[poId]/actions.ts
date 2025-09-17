@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { z } from 'zod';
 
 // --- Tipe Data ---
 export type PurchaseOrderDetails = {
@@ -28,6 +29,13 @@ export type PurchaseOrderDetails = {
     }[];
 } | null;
 
+// Tipe untuk item yang akan diterima, digunakan oleh client & server action
+export type ReceivedItem = {
+    po_item_id: string;
+    quantity_received: number;
+};
+
+
 // --- Helper ---
 async function getSupabaseAndOrgId() {
     const cookieStore = await cookies();
@@ -43,9 +51,11 @@ async function getSupabaseAndOrgId() {
     return { supabase, organization_id: member.organization_id };
 }
 
+
 // --- Server Actions ---
 
 export async function getPurchaseOrderDetails(poId: string): Promise<PurchaseOrderDetails> {
+    // ... (kode tidak berubah)
     try {
         const { supabase, organization_id } = await getSupabaseAndOrgId();
         const { data, error } = await supabase.rpc('get_purchase_order_details', {
@@ -61,13 +71,14 @@ export async function getPurchaseOrderDetails(poId: string): Promise<PurchaseOrd
 }
 
 export async function cancelPurchaseOrder(poId: string) {
+    // ... (kode tidak berubah)
     try {
         const { supabase, organization_id } = await getSupabaseAndOrgId();
         const { error } = await supabase
             .from('purchase_orders')
             .update({ status: 'cancelled' })
             .eq('id', poId)
-            .in('status', ['draft', 'ordered']) // Hanya bisa membatalkan draft atau yang sudah dipesan
+            .in('status', ['draft', 'ordered'])
             .eq('organization_id', organization_id);
         if (error) throw new Error(error.message);
     } catch (e: any) {
@@ -77,8 +88,8 @@ export async function cancelPurchaseOrder(poId: string) {
     redirect('/dashboard/inventory/purchase-orders');
 }
 
-// Placeholder untuk aksi berikutnya
 export async function orderPurchaseOrder(poId: string) {
+     // ... (kode tidak berubah)
      try {
         const { supabase, organization_id } = await getSupabaseAndOrgId();
         const { error } = await supabase
@@ -92,5 +103,28 @@ export async function orderPurchaseOrder(poId: string) {
         return { success: false, message: e.message };
     }
     revalidatePath(`/dashboard/inventory/purchase-orders/${poId}`);
+    return { success: true };
+}
+
+// Server Action BARU untuk memproses penerimaan barang
+export async function receivePurchaseOrderItems(poId: string, receivedItems: ReceivedItem[]): Promise<{ success: boolean; message?: string }> {
+    if (receivedItems.length === 0) {
+        return { success: false, message: "Tidak ada item yang diterima." };
+    }
+    try {
+        const { supabase, organization_id } = await getSupabaseAndOrgId();
+        const { error } = await supabase.rpc('process_purchase_order_reception', {
+            p_po_id: poId,
+            p_organization_id: organization_id,
+            p_received_items: receivedItems
+        });
+        if (error) throw new Error(error.message);
+
+    } catch (e: any) {
+        return { success: false, message: e.message };
+    }
+
+    revalidatePath(`/dashboard/inventory/purchase-orders/${poId}`);
+    revalidatePath(`/dashboard/inventory/stock-report`); // Revalidasi laporan stok juga
     return { success: true };
 }
