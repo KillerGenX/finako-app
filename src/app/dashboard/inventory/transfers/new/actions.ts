@@ -6,13 +6,11 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
-// Tipe untuk item yang akan ditransfer
+// ... (Skema dan tipe data lainnya tidak berubah)
 type TransferItem = {
     variant_id: string;
     quantity: number;
 };
-
-// Skema Zod untuk validasi form
 const CreateTransferSchema = z.object({
     outlet_from_id: z.string().uuid("Outlet asal harus dipilih."),
     outlet_to_id: z.string().uuid("Outlet tujuan harus dipilih."),
@@ -25,8 +23,6 @@ const CreateTransferSchema = z.object({
     message: "Outlet asal dan tujuan tidak boleh sama.",
     path: ["outlet_to_id"],
 });
-
-// Helper untuk otentikasi dan org_id
 async function getSupabaseAndUser() {
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -42,35 +38,26 @@ async function getSupabaseAndUser() {
 }
 
 
-// Server Action untuk mencari produk varian - MENIRU LOGIKA PRODUK KOMPOSIT
-export async function searchProductVariants(query: string) {
-    if (query.length < 2) return [];
+// Server Action untuk mencari produk varian - DIPERBAIKI DENGAN RPC DEDIKASI
+export async function searchProductVariants(query: string, outletId: string | null) {
+    if (query.length < 2 || !outletId) return [];
+    
     try {
         const { supabase, organization_id } = await getSupabaseAndUser();
 
-        // 1. Panggil RPC yang sama dengan yang digunakan di Composite Manager
-        const { data, error } = await supabase.rpc('get_products_with_stock', { 
-            p_organization_id: organization_id 
+        // Panggil RPC baru yang dirancang khusus untuk tugas ini
+        const { data, error } = await supabase.rpc('search_variants_for_transfer', {
+            p_organization_id: organization_id,
+            p_outlet_id: outletId,
+            p_search_query: query
         });
 
-        if (error) throw new Error('Gagal mencari produk: ' + error.message);
-
-        const lowercasedQuery = query.toLowerCase();
-
-        // 2. Filter hasilnya menggunakan JavaScript, sama seperti di Composite Manager
-        const results = data
-            .filter((p: any) => 
-                p.name.toLowerCase().includes(lowercasedQuery) || 
-                (p.sku && p.sku.toLowerCase().includes(lowercasedQuery))
-            )
-            .slice(0, 10); // Batasi 10 hasil teratas
-
-        // 3. Kembalikan data dalam format yang dibutuhkan UI
-        return results.map((p: any) => ({ 
-            id: p.id, 
-            name: p.name, 
-            sku: p.sku 
-        }));
+        if (error) {
+            console.error("RPC search_variants_for_transfer Error:", error);
+            return [];
+        }
+    
+        return data;
 
     } catch (e: any) {
         console.error("Server Action Error (searchProductVariants):", e.message);
@@ -81,6 +68,7 @@ export async function searchProductVariants(query: string) {
 
 // Server Action utama untuk membuat draft transfer
 export async function createTransferAction(formData: FormData) {
+    // ... (kode tidak berubah)
     const itemsJSON = formData.get('items') as string;
     const items = JSON.parse(itemsJSON);
 
