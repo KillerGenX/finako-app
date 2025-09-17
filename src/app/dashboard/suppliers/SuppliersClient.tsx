@@ -16,7 +16,7 @@ type Supplier = {
     notes: string | null;
 };
 
-// --- Komponen Modal ---
+// --- Komponen Modal Add/Edit ---
 function SupplierModal({ supplier, onClose, onSave, isSaving }: { 
     supplier: Partial<Supplier> | null; 
     onClose: () => void; 
@@ -62,6 +62,8 @@ export function SuppliersClient({ initialSuppliers }: { initialSuppliers: Suppli
     
     const [searchQuery, setSearchQuery] = useState('');
     const [modalState, setModalState] = useState<{ isOpen: boolean; supplier: Partial<Supplier> | null }>({ isOpen: false, supplier: null });
+    // PERBAIKAN: State baru untuk modal konfirmasi hapus
+    const [confirmDelete, setConfirmDelete] = useState<Supplier | null>(null);
     const debouncedSearch = useDebounce(searchQuery, 300);
 
     useEffect(() => {
@@ -84,18 +86,44 @@ export function SuppliersClient({ initialSuppliers }: { initialSuppliers: Suppli
         });
     };
 
-    const handleDelete = (supplierId: string) => {
-        if (confirm("Anda yakin ingin menghapus pemasok ini?")) {
-            startTransition(async () => {
-                await deleteSupplier(supplierId);
-            });
-        }
+    // PERBAIKAN: Logika hapus yang diperbarui
+    const handleDelete = async () => {
+        if (!confirmDelete) return;
+
+        startTransition(async () => {
+            const result = await deleteSupplier(confirmDelete.id);
+            if (result.success) {
+                // Perbarui state UI secara langsung
+                setSuppliers(prev => prev.filter(s => s.id !== confirmDelete.id));
+                // Tutup modal konfirmasi
+                setConfirmDelete(null);
+            } else {
+                alert(`Error: ${result.message}`);
+                setConfirmDelete(null);
+            }
+        });
     };
 
     return (
         <>
             {modalState.isOpen && <SupplierModal supplier={modalState.supplier} onClose={() => setModalState({ isOpen: false, supplier: null })} onSave={handleSave} isSaving={isPending} />}
             
+            {/* PERBAIKAN: Modal konfirmasi hapus kustom */}
+            {confirmDelete && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm shadow-xl">
+                        <h3 className="font-bold text-lg">Konfirmasi Hapus</h3>
+                        <p className="py-4">Anda yakin ingin menghapus pemasok "{confirmDelete.name}"? Tindakan ini tidak dapat dibatalkan.</p>
+                        <div className="flex justify-end gap-2">
+                            <button onClick={() => setConfirmDelete(null)} className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-600">Batal</button>
+                            <button onClick={handleDelete} disabled={isPending} className="px-4 py-2 rounded bg-red-600 text-white disabled:bg-gray-400">
+                                {isPending ? 'Menghapus...' : 'Hapus'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="flex justify-between items-center mb-4">
                 <div className="relative w-full max-w-xs">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -122,7 +150,8 @@ export function SuppliersClient({ initialSuppliers }: { initialSuppliers: Suppli
                                 <td className="p-4 text-right">
                                      <div className="inline-flex rounded-md shadow-sm">
                                         <button onClick={() => setModalState({ isOpen: true, supplier: s })} className="px-3 py-2 text-xs font-medium text-gray-900 bg-white border border-gray-200 rounded-l-lg hover:bg-gray-100">Edit</button>
-                                        <button onClick={() => handleDelete(s.id)} className="px-3 py-2 text-xs font-medium text-red-600 bg-white border-t border-b border-r border-gray-200 rounded-r-md hover:bg-gray-100">Hapus</button>
+                                        {/* PERBAIKAN: Tombol hapus sekarang membuka modal */}
+                                        <button onClick={() => setConfirmDelete(s)} className="px-3 py-2 text-xs font-medium text-red-600 bg-white border-t border-b border-r border-gray-200 rounded-r-md hover:bg-gray-100">Hapus</button>
                                     </div>
                                 </td>
                             </tr>
