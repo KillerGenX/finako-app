@@ -288,6 +288,13 @@ CREATE TABLE public.inventory_stock_movements (
 COMMENT ON TABLE public.inventory_stock_movements IS 'Immutable ledger of all stock movements.';
 COMMENT ON COLUMN public.inventory_stock_movements.reference_id IS 'ID of the source document (e.g., transaction_id, stock_adjustment_id).';
 
+
+ALTER TABLE public.inventory_stock_movements
+ADD COLUMN IF NOT EXISTS notes TEXT;
+
+COMMENT ON COLUMN public.inventory_stock_movements.notes IS 'Catatan kontekstual untuk pergerakan stok, misal "Hasil Stok Opname" atau "Barang Rusak".';
+
+
 -- Buat Tipe ENUM baru untuk status transfer
 DO $$
 BEGIN

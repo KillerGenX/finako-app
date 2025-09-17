@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Printer, Save, CheckCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Printer, CheckCircle, Loader2 } from 'lucide-react';
 import { StockOpnameDetails, saveOpnameItems, completeStockOpname, OpnameItemUpdate } from './actions';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 
@@ -26,24 +26,27 @@ export function StockOpnameDetailClient({ initialDetails }: { initialDetails: St
     const router = useRouter();
 
     const [updatedItems, setUpdatedItems] = useState<Map<string, number>>(new Map());
-    const debouncedItems = useDebounce(updatedItems, 1000); // Debounce
+    const debouncedItems = useDebounce(updatedItems, 1000);
+    
+    // PERBAIKAN: State untuk modal konfirmasi
+    const [confirmComplete, setConfirmComplete] = useState(false);
     
     useEffect(() => { setDetails(initialDetails); }, [initialDetails]);
 
-    // Handler untuk mengubah kuantitas fisik
     const handleQuantityChange = (itemId: string, value: string) => {
         const newQty = parseInt(value, 10);
         setUpdatedItems(prev => new Map(prev).set(itemId, isNaN(newQty) ? 0 : newQty));
     };
     
-    // Effect untuk menyimpan otomatis saat user berhenti mengetik
     useEffect(() => {
         if (debouncedItems.size > 0) {
             const itemsToSave: OpnameItemUpdate[] = Array.from(debouncedItems.entries()).map(([id, physical_quantity]) => ({ id, physical_quantity }));
             startSaveTransition(() => {
-                saveOpnameItems(itemsToSave).then(() => {
-                    setUpdatedItems(new Map()); // Reset setelah menyimpan
-                    router.refresh();
+                saveOpnameItems(itemsToSave).then((result) => {
+                    if (result.success) {
+                        setUpdatedItems(new Map());
+                        router.refresh();
+                    }
                 });
             });
         }
@@ -51,12 +54,16 @@ export function StockOpnameDetailClient({ initialDetails }: { initialDetails: St
 
 
     const handleComplete = () => {
-        if (confirm("Anda yakin ingin menyelesaikan Stok Opname ini? Stok akan disesuaikan dan proses tidak dapat dibatalkan.")) {
-            startCompleteTransition(async () => {
-                await completeStockOpname(details!.id);
+        startCompleteTransition(async () => {
+            const result = await completeStockOpname(details!.id);
+            if (result.success) {
+                setConfirmComplete(false);
                 router.refresh();
-            });
-        }
+            } else {
+                alert(`Error: ${result.message}`);
+                setConfirmComplete(false);
+            }
+        });
     };
 
     const formatDate = (dateString: string | null) => dateString ? new Date(dateString).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '-';
@@ -66,8 +73,22 @@ export function StockOpnameDetailClient({ initialDetails }: { initialDetails: St
 
     return (
         <div className="w-full">
-             {/* Header */}
-            <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
+             {confirmComplete && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm shadow-xl">
+                        <h3 className="font-bold text-lg">Konfirmasi Penyelesaian</h3>
+                        <p className="py-4">Anda yakin ingin menyelesaikan Stok Opname ini? Stok akan disesuaikan secara permanen. Proses ini tidak dapat dibatalkan.</p>
+                        <div className="flex justify-end gap-2">
+                            <button onClick={() => setConfirmComplete(false)} className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-600">Batal</button>
+                            <button onClick={handleComplete} disabled={isCompleting} className="px-4 py-2 rounded bg-green-600 text-white disabled:bg-gray-400">
+                                {isCompleting ? <Loader2 className="animate-spin" /> : 'Ya, Selesaikan'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+             
+             <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
                 <div>
                     <Link href="/dashboard/inventory/stock-opname" className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-2">
                         <ArrowLeft size={18} /> Kembali ke Daftar Opname
@@ -77,13 +98,13 @@ export function StockOpnameDetailClient({ initialDetails }: { initialDetails: St
                 <div className="flex items-center gap-2">
                     <button className="bg-gray-200 px-4 py-2 rounded-lg flex items-center gap-2"><Printer size={18} /> Cetak Lembar Hitung</button>
                     {!isCompleted && (
-                        <button onClick={handleComplete} disabled={isCompleting || isSaving} className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:bg-gray-400">
+                        <button onClick={() => setConfirmComplete(true)} disabled={isCompleting || isSaving} className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:bg-gray-400">
                              {isCompleting ? <Loader2 className="animate-spin" /> : <CheckCircle size={18} />} Selesaikan Opname
                         </button>
                     )}
                 </div>
             </div>
-            {/* Detail Info */}
+            
             <div className="p-6 bg-white dark:bg-gray-800/50 rounded-lg border mb-6">
                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                     <InfoItem label="Status" value={<StatusBadge status={details.status} />} />
@@ -93,7 +114,6 @@ export function StockOpnameDetailClient({ initialDetails }: { initialDetails: St
                 </div>
             </div>
 
-            {/* Daftar Item */}
              <div className="border rounded-lg w-full bg-white dark:bg-gray-800/50">
                 <table className="w-full text-sm">
                     <thead><tr className="border-b">
@@ -108,17 +128,10 @@ export function StockOpnameDetailClient({ initialDetails }: { initialDetails: St
                                 <td className="p-4 font-semibold">{item.name}<p className="text-xs text-gray-500">{item.sku}</p></td>
                                 <td className="p-4 text-right font-mono">{item.system_quantity}</td>
                                 <td className="p-4 text-right">
-                                    <input 
-                                        type="number" 
-                                        defaultValue={item.physical_quantity ?? ''}
-                                        onChange={e => handleQuantityChange(item.id, e.target.value)}
-                                        placeholder="-"
-                                        disabled={isCompleted}
-                                        className="w-24 p-1 border rounded text-center bg-transparent disabled:bg-gray-100"
-                                    />
+                                    <input type="number" defaultValue={item.physical_quantity ?? ''} onChange={e => handleQuantityChange(item.id, e.target.value)} placeholder="-" disabled={isCompleted} className="w-24 p-1 border rounded text-center bg-transparent disabled:bg-gray-100 dark:disabled:bg-gray-700" />
                                 </td>
                                 <td className={`p-4 text-right font-mono font-bold ${item.difference === 0 ? '' : item.difference && item.difference > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {item.difference !== null ? (item.difference > 0 ? '+' : '') + item.difference : '-'}
+                                    {item.physical_quantity !== null ? (item.difference! > 0 ? '+' : '') + item.difference : '-'}
                                 </td>
                             </tr>
                         ))}

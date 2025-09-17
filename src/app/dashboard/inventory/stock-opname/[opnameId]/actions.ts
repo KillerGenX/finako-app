@@ -32,7 +32,6 @@ export type OpnameItemUpdate = {
 
 // --- Helper ---
 async function getSupabaseAndOrgId() {
-    // ... (kode helper sama)
     const cookieStore = await cookies();
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -46,9 +45,11 @@ async function getSupabaseAndOrgId() {
     return { supabase, organization_id: member.organization_id };
 }
 
+
 // --- Server Actions ---
 
 export async function getStockOpnameDetails(opnameId: string): Promise<StockOpnameDetails> {
+    // ... (kode tidak berubah)
     try {
         const { supabase, organization_id } = await getSupabaseAndOrgId();
         const { data, error } = await supabase.rpc('get_stock_opname_details', {
@@ -64,6 +65,7 @@ export async function getStockOpnameDetails(opnameId: string): Promise<StockOpna
 }
 
 export async function saveOpnameItems(items: OpnameItemUpdate[]): Promise<{ success: boolean; message?: string }> {
+    // ... (kode tidak berubah)
     try {
         const { supabase } = await getSupabaseAndOrgId();
         const updates = items.map(item => 
@@ -83,19 +85,23 @@ export async function saveOpnameItems(items: OpnameItemUpdate[]): Promise<{ succ
     return { success: true };
 }
 
+// PERBAIKAN: completeStockOpname sekarang memanggil RPC yang benar
 export async function completeStockOpname(opnameId: string): Promise<{ success: boolean; message?: string }> {
-    // Di sini kita akan membutuhkan RPC lain untuk memproses penyesuaian stok
-    // Untuk saat ini, kita hanya update status
     try {
-        const { supabase } = await getSupabaseAndOrgId();
-        const { error } = await supabase
-            .from('stock_opnames')
-            .update({ status: 'completed', completed_at: new Date().toISOString() })
-            .eq('id', opnameId);
-        if (error) throw error;
+        const { supabase, organization_id } = await getSupabaseAndOrgId();
+        const { error } = await supabase.rpc('process_stock_opname_completion', {
+            p_opname_id: opnameId,
+            p_organization_id: organization_id
+        });
+        if (error) throw new Error(error.message);
+
     } catch (e: any) {
         return { success: false, message: e.message };
     }
+    
+    // Revalidasi semua path yang relevan
     revalidatePath(`/dashboard/inventory/stock-opname/${opnameId}`);
+    revalidatePath('/dashboard/inventory/stock-report');
+    revalidatePath('/dashboard/outlets');
     return { success: true };
 }
