@@ -90,6 +90,11 @@ export function InventoryLedgerClient({ productVariant, outlets, initialDetails,
     const [showInitialStockModal, setShowInitialStockModal] = useState(false);
     const router = useRouter();
 
+    // PERBAIKAN: Sinkronkan state internal dengan prop yang masuk
+    useEffect(() => {
+        setDetails(initialDetails);
+    }, [initialDetails]);
+
     const handleSaveInitialStock = async (variantId: string, stocks: InitialStockInput[]) => {
         const result = await setInitialStock(variantId, stocks);
         if (result.success) router.refresh();
