@@ -20,6 +20,14 @@ const CreatePOSchema = z.object({
     })).min(1, "Minimal harus ada satu produk untuk dipesan."),
 });
 
+// --- Tipe Data Baru untuk Riwayat Pembelian ---
+export type PurchaseHistoryEntry = {
+    order_date: string;
+    po_number: string;
+    unit_cost: number;
+    supplier_name: string;
+};
+
 // ... (Helper dan action lain tidak berubah)
 async function getSupabaseAndUser() {
     const cookieStore = await cookies();
@@ -58,6 +66,22 @@ export async function searchProductVariants(query: string) {
         return [];
     }
     return data.map((v: any) => ({ ...v, unit_cost: 0 }));
+}
+
+// --- Server Action BARU untuk mendapatkan riwayat pembelian ---
+export async function getPurchaseHistory(variantId: string): Promise<PurchaseHistoryEntry[]> {
+    try {
+        const { supabase, organization_id } = await getSupabaseAndUser();
+        const { data, error } = await supabase.rpc('get_purchase_history', {
+            p_variant_id: variantId,
+            p_organization_id: organization_id
+        });
+        if (error) throw new Error(error.message);
+        return data || [];
+    } catch (e: any) {
+        console.error("Error fetching purchase history:", e.message);
+        return []; // Kembalikan array kosong jika terjadi error
+    }
 }
 
 
