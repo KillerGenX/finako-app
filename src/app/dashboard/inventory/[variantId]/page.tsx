@@ -1,83 +1,59 @@
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { notFound } from 'next/navigation';
-import { InventoryClient } from './InventoryClient'; // This will be the client component
+import { InventoryLedgerClient } from './InventoryLedgerClient'; // Komponen baru
+import { getInventoryLedgerDetails } from './actions';
 
-export default async function InventoryPage({ params }: { params: { variantId: string } }) {
-    const { variantId } = await params; // Await params
+export default async function InventoryLedgerPage({ params }: { params: { variantId: string } }) {
+    const { variantId } = params;
     
     const cookieStore = await cookies();
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-            cookies: {
-                get(name: string) { return cookieStore.get(name)?.value },
-            },
-        }
+        { cookies: { get: (name: string) => cookieStore.get(name)?.value } }
     );
-
+    
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) notFound();
-
     const { data: member } = await supabase.from('organization_members').select('organization_id').eq('user_id', user.id).single();
     if (!member) notFound();
     
-    const organization_id = member.organization_id;
+    // Ambil data utama dari RPC baru
+    const ledgerDetails = await getInventoryLedgerDetails(variantId);
+    if (!ledgerDetails) notFound();
 
-    // Fetch all necessary data in parallel
+    // Ambil data pendukung
     const variantPromise = supabase
         .from('product_variants')
-        .select('id, name, sku, product:products(name)')
+        .select('id, name, sku, products!inner(name)')
         .eq('id', variantId)
-        .eq('organization_id', organization_id)
+        .eq('organization_id', member.organization_id)
         .single();
-
+        
     const outletsPromise = supabase
         .from('outlets')
         .select('id, name')
-        .eq('organization_id', organization_id)
+        .eq('organization_id', member.organization_id)
         .order('name');
     
-    const stockLevelsPromise = supabase
-        .from('inventory_stock_levels')
-        .select('quantity_on_hand, outlet:outlets (id, name)')
-        .eq('product_variant_id', variantId);
+    const [variantResult, outletsResult] = await Promise.all([variantPromise, outletsPromise]);
+    if (variantResult.error || !variantResult.data) notFound();
 
-    const stockMovementsPromise = supabase
-        .from('inventory_stock_movements')
-        .select('created_at, quantity_change, movement_type, outlet:outlets (name)')
-        .eq('product_variant_id', variantId)
-        .order('created_at', { ascending: false });
-
-    const [
-        variantResult,
-        outletsResult,
-        stockLevelsResult,
-        stockMovementsResult
-    ] = await Promise.all([
-        variantPromise,
-        outletsPromise,
-        stockLevelsPromise,
-        stockMovementsPromise
-    ]);
-
-    if (variantResult.error || !variantResult.data) {
-        notFound();
-    }
-    
-    // Combine product name with variant name
     const productVariant = {
         ...variantResult.data,
-        name: `${variantResult.data.product?.name} - ${variantResult.data.name}`
-    }
+        name: `${variantResult.data.products.name} - ${variantResult.data.name}`
+    };
+
+    // Cek apakah produk sudah punya stok awal
+    const hasInitialStock = ledgerDetails.summary.total_stock > 0 || ledgerDetails.ledger.length > 0;
 
     return (
-        <InventoryClient
+        <InventoryLedgerClient
             productVariant={productVariant}
             outlets={outletsResult.data || []}
-            initialStockLevels={stockLevelsResult.data || []}
-            stockMovements={stockMovementsResult.data || []}
+            initialDetails={ledgerDetails}
+            hasInitialStock={hasInitialStock}
         />
     );
 }
