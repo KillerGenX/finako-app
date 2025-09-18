@@ -34,11 +34,11 @@ export default function InventoryDashboardPage() {
                         <div><h2 className="text-lg font-semibold">Stok Opname</h2><p className="text-sm text-gray-500">Lakukan perhitungan & penyesuaian stok fisik.</p></div>
                     </div>
                 </Link>
-                <div className="p-6 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-dashed">
-                     <div className="flex items-center gap-4 opacity-50"><div className="p-3 bg-gray-200 dark:bg-gray-700 rounded-lg"><ArchiveX className="h-6 w-6 text-gray-500" /></div>
-                        <div><h2 className="text-lg font-semibold">Barang Rusak/Hilang</h2><p className="text-sm text-gray-500">(Segera Hadir)</p></div>
+                <Link href="/dashboard/inventory/write-offs" className="block p-6 bg-white dark:bg-gray-800 rounded-lg border hover:shadow-lg transition-shadow">
+                     <div className="flex items-center gap-4"><div className="p-3 bg-red-100 dark:bg-red-900 rounded-lg"><ArchiveX className="h-6 w-6 text-red-600" /></div>
+                        <div><h2 className="text-lg font-semibold">Barang Rusak/Hilang</h2><p className="text-sm text-gray-500">Catat dan hapus stok yang rusak.</p></div>
                     </div>
-                </div>
+                </Link>
                 <div className="p-6 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-dashed">
                      <div className="flex items-center gap-4 opacity-50"><div className="p-3 bg-gray-200 dark:bg-gray-700 rounded-lg"><PackagePlus className="h-6 w-6 text-gray-500" /></div>
                         <div><h2 className="text-lg font-semibold">Penerimaan Lainnya</h2><p className="text-sm text-gray-500">(Segera Hadir)</p></div>
