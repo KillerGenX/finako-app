@@ -7,11 +7,9 @@
 --  suatu produk berada di bawah ambang batas (reorder point), fungsi
 --  ini akan membuat notifikasi di tabel `user_notifications`.
 --
---  Instruksi:
---  1. Jalankan skrip SQL ini di Supabase SQL Editor Anda untuk membuat
---     fungsi `check_low_stock_and_notify()`.
---  2. Setelah fungsi dibuat, jadwalkan untuk berjalan secara periodik
---     (misalnya, setiap jam) menggunakan pg_cron di Supabase Dashboard.
+--  Pembaruan:
+--  - Menggunakan TRUNC() untuk memformat angka stok menjadi integer
+--    dalam pesan notifikasi.
 --
 -- =================================================================
 
@@ -53,7 +51,7 @@ BEGIN
             INSERT INTO public.user_notifications (user_id, message, link)
             VALUES (
                 owner_id,
-                'Stok rendah untuk "' || low_stock_item.variant_name || '" di outlet "' || low_stock_item.outlet_name || '". Sisa: ' || low_stock_item.quantity_on_hand,
+                'Stok rendah untuk "' || low_stock_item.variant_name || '" di outlet "' || low_stock_item.outlet_name || '". Sisa: ' || TRUNC(low_stock_item.quantity_on_hand),
                 '/dashboard/inventory/' || low_stock_item.product_variant_id
             );
         END IF;
