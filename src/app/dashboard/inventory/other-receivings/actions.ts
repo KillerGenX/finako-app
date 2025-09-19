@@ -44,13 +44,25 @@ export async function getOtherReceivings(): Promise<OtherReceivingListItem[]> {
         console.error("Error fetching other receivings:", error);
         return [];
     }
+    
+    // PERBAIKAN: Logika pemetaan yang lebih aman
+    return data.map(item => {
+        let outletName = 'N/A';
+        if (item.outlet) {
+            // Supabase bisa mengembalikan objek atau array, tangani keduanya
+            outletName = Array.isArray(item.outlet) 
+                ? item.outlet[0]?.name 
+                : (item.outlet as { name: string })?.name;
+        }
 
-    return data.map(item => ({
-        id: item.id,
-        receiving_number: item.receiving_number,
-        outlet_name: Array.isArray(item.outlet) ? item.outlet[0]?.name : item.outlet?.name || 'N/A',
-        created_at: item.created_at,
-        notes: item.notes,
-        item_count: item.items[0]?.count || 0,
-    }));
+        return {
+            id: item.id,
+            receiving_number: item.receiving_number,
+            outlet_name: outletName || 'N/A', // Pastikan tidak pernah null
+            created_at: item.created_at,
+            notes: item.notes,
+            // Ambil item_count dengan lebih aman
+            item_count: (item.items && item.items[0]?.count) || 0,
+        };
+    });
 }
