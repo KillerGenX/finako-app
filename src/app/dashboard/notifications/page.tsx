@@ -1,10 +1,12 @@
 // src/app/dashboard/notifications/page.tsx
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
-import { Bell, ArrowLeft } from 'lucide-react';
+import { Bell, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 
-async function getAllNotifications() {
+const ITEMS_PER_PAGE = 10;
+
+async function getPaginatedNotifications(page = 1) {
     const cookieStore = await cookies();
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,23 +15,31 @@ async function getAllNotifications() {
     );
     
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
+    if (!user) return { notifications: [], totalCount: 0 };
 
-    const { data, error } = await supabase
+    const from = (page - 1) * ITEMS_PER_PAGE;
+    const to = from + ITEMS_PER_PAGE - 1;
+
+    // Query untuk mengambil data halaman ini DAN total keseluruhan
+    const { data, error, count } = await supabase
         .from('user_notifications')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
     
     if (error) {
-        console.error('Error fetching all notifications:', error);
-        return [];
+        console.error('Error fetching paginated notifications:', error);
+        return { notifications: [], totalCount: 0 };
     }
-    return data;
+    
+    return { notifications: data || [], totalCount: count || 0 };
 }
 
-export default async function NotificationsPage() {
-    const notifications = await getAllNotifications();
+export default async function NotificationsPage({ searchParams }: { searchParams: { page?: string } }) {
+    const currentPage = parseInt(searchParams.page || '1', 10);
+    const { notifications, totalCount } = await getPaginatedNotifications(currentPage);
+    const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
     return (
         <div className="w-full">
@@ -65,6 +75,31 @@ export default async function NotificationsPage() {
                     )}
                 </ul>
             </div>
+
+            {/* --- Komponen Pagination --- */}
+            {totalPages > 1 && (
+                <div className="mt-6 flex justify-between items-center">
+                    <Link 
+                        href={`/dashboard/notifications?page=${Math.max(1, currentPage - 1)}`}
+                        className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage <= 1 ? 'pointer-events-none text-gray-400 bg-gray-100' : 'bg-white hover:bg-gray-50'}`}
+                    >
+                        <ChevronLeft className="h-4 w-4 mr-2" />
+                        Sebelumnya
+                    </Link>
+
+                    <span className="text-sm text-gray-700">
+                        Halaman {currentPage} dari {totalPages}
+                    </span>
+
+                    <Link 
+                        href={`/dashboard/notifications?page=${Math.min(totalPages, currentPage + 1)}`}
+                        className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage >= totalPages ? 'pointer-events-none text-gray-400 bg-gray-100' : 'bg-white hover:bg-gray-50'}`}
+                    >
+                        Selanjutnya
+                        <ChevronRight className="h-4 w-4 ml-2" />
+                    </Link>
+                </div>
+            )}
         </div>
     );
 }
