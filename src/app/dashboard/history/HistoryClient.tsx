@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { format } from 'date-fns';
 import { Printer, Calendar as CalendarIcon, Store, User, Loader2, Eye } from 'lucide-react';
 import { ClosingReportData } from './actions';
-import { ViewReceiptModal } from './ViewReceiptModal'; // <<-- 1. IMPORTAR EL MODAL
+import { ViewReceiptModal } from './ViewReceiptModal';
 import { PrintableClosingReport } from './PrintableClosingReport';
 
-// ... (Componente StatCard no cambia)
+// --- Komponen Anak ---
 const StatCard = ({ title, value }: { title: string, value: string }) => (
     <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
         <h3 className="text-sm font-medium text-gray-500">{title}</h3>
@@ -16,7 +16,7 @@ const StatCard = ({ title, value }: { title: string, value: string }) => (
     </div>
 );
 
-// --- Componente Principal ---
+// --- Komponen Utama ---
 export function HistoryClient({
     initialReportData,
     outlets,
@@ -32,9 +32,10 @@ export function HistoryClient({
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const [isPending, startTransition] = useTransition();
-    const [viewingTransactionId, setViewingTransactionId] = useState<string | null>(null); // Estado para el modal
+    const [viewingTransactionId, setViewingTransactionId] = useState<string | null>(null);
+    const [isPrinting, setIsPrinting] = useState(false); // <-- State baru untuk cetak
 
-    // ... (Lógica de filtro no cambia)
+    // State untuk filter
     const [date, setDate] = useState(searchParams.get('date') || format(new Date(), 'yyyy-MM-dd'));
     const [outletId, setOutletId] = useState(searchParams.get('outletId') || outlets[0]?.id || '');
     const [cashierId, setCashierId] = useState(searchParams.get('cashierId') || 'all');
@@ -50,18 +51,36 @@ export function HistoryClient({
         });
     };
     
+    // Fungsi baru untuk menangani logika cetak
+    const handlePrint = () => {
+        setIsPrinting(true);
+    };
+
+    useEffect(() => {
+        if (isPrinting) {
+            // Beri waktu sejenak agar komponen cetak dirender sebelum dialog print muncul
+            setTimeout(() => {
+                window.print();
+                // Set kembali ke false setelah dialog print selesai
+                setIsPrinting(false);
+            }, 50);
+        }
+    }, [isPrinting]);
+    
     const formatCurrency = (value: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(value);
 
     const report = initialReportData;
 
     return (
         <>
-            {/* 2. AGREGAR LA LÓGICA DE RENDERIZADO DEL MODAL */}
             {viewingTransactionId && <ViewReceiptModal transactionId={viewingTransactionId} onClose={() => setViewingTransactionId(null)} />}
             
-            <div className="printable-area">
-                <PrintableClosingReport reportData={report} orgName="Nama Organisasi Anda" />
-            </div>
+            {/* Tampilan Cetak hanya dirender saat isPrinting true */}
+            {isPrinting && (
+                <div className="printable-area">
+                    <PrintableClosingReport reportData={report} orgName="Nama Organisasi Anda" />
+                </div>
+            )}
 
             <div className="w-full no-print">
                 <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -70,14 +89,14 @@ export function HistoryClient({
                         <p className="text-gray-500">Ringkasan transaksi untuk rekonsiliasi kasir.</p>
                     </div>
                     <button 
-                        onClick={() => window.print()} 
+                        onClick={handlePrint} // <-- Panggil fungsi baru
                         className="px-4 py-2 bg-teal-600 text-white rounded-lg flex items-center gap-2"
                     >
                         <Printer size={16} /> Cetak Laporan
                     </button>
                 </div>
 
-                {/* Controles de Filtro */}
+                {/* Filter Controls */}
                 <div className="p-4 bg-white dark:bg-gray-800/50 rounded-lg border mb-6 flex flex-wrap items-end gap-4">
                     <div>
                         <label htmlFor="date" className="text-sm font-medium">Tanggal</label>
@@ -111,7 +130,7 @@ export function HistoryClient({
                     <div className="text-center p-12"><p>Tidak ada data transaksi untuk filter yang dipilih.</p></div>
                 ) : (
                     <div className="space-y-6">
-                        {/* Área de Resumen */}
+                        {/* Area Ringkasan */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <StatCard title="Total Penjualan Bersih" value={formatCurrency(report.summary.net_sales)} />
                             <StatCard title="Total Transaksi" value={report.summary.total_transactions.toString()} />
@@ -127,7 +146,7 @@ export function HistoryClient({
                             </div>
                         </div>
 
-                        {/* Lista de Transacciones Detallada */}
+                        {/* Daftar Transaksi Rinci */}
                         <div>
                             <h2 className="text-lg font-semibold mb-2">Daftar Transaksi</h2>
                              <div className="border rounded-lg bg-white dark:bg-gray-800/50">
@@ -141,7 +160,6 @@ export function HistoryClient({
                                                 <td className="p-3">{tx.member_name}</td>
                                                 <td className="p-3 text-right font-semibold">{formatCurrency(tx.grand_total)}</td>
                                                 <td className="p-3 text-center">
-                                                    {/* 3. CONECTAR EL ONCLICK AL ESTADO */}
                                                     <button onClick={() => setViewingTransactionId(tx.id)} className="text-gray-500 hover:text-teal-600">
                                                         <Eye size={16} />
                                                     </button>
