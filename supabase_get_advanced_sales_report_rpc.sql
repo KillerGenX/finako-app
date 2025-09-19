@@ -1,16 +1,13 @@
--- Supabase RPC Function: get_advanced_sales_and_profit_report
+-- Supabase RPC Function: get_advanced_sales_and_profit_report (Versi 3)
 -- =================================================================
 --
 --  Tujuan: 
---  Menghitung metrik penjualan dan keuntungan secara komprehensif,
---  memperhitungkan diskon item, diskon transaksi, pajak, dan HPP.
---  Mendukung filter berdasarkan rentang tanggal dan outlet.
+--  Menghitung metrik penjualan dan keuntungan secara komprehensif.
 --
---  Parameter:
---  - p_organization_id: UUID organisasi
---  - p_start_date: Tanggal mulai (TIMESTAMPTZ)
---  - p_end_date: Tanggal akhir (TIMESTAMPTZ)
---  - p_outlet_id: UUID outlet (opsional, NULL untuk semua outlet)
+--  Pembaruan:
+--  -   Menambahkan output `daily_trend` yang berisi agregat harian
+--      dari pendapatan bersih dan laba kotor untuk digunakan dalam
+--      grafik visualisasi.
 --
 -- =================================================================
 
@@ -27,7 +24,6 @@ DECLARE
     v_report JSONB;
 BEGIN
     WITH relevant_transactions AS (
-        -- Langkah 1: Pra-filter transaksi yang relevan
         SELECT *
         FROM public.transactions t
         WHERE t.organization_id = p_organization_id
@@ -36,12 +32,11 @@ BEGIN
           AND (p_outlet_id IS NULL OR t.outlet_id = p_outlet_id)
     ),
     item_calculations AS (
-        -- Langkah 2: Hitung metrik dasar untuk setiap item transaksi
         SELECT 
             ti.product_variant_id,
+            t.transaction_date,
             (ti.quantity * ti.unit_price) AS gross_revenue_item,
             ti.discount_amount AS item_level_discount,
-            -- Alokasikan diskon transaksi secara proporsional
             CASE 
                 WHEN t.subtotal > 0 THEN (ti.quantity * ti.unit_price / t.subtotal) * t.total_discount
                 ELSE 0 
@@ -53,7 +48,6 @@ BEGIN
         JOIN public.product_variants pv ON ti.product_variant_id = pv.id
     ),
     summary AS (
-        -- Langkah 3: Agregasi semua perhitungan untuk ringkasan total
         SELECT
             COALESCE(SUM(gross_revenue_item), 0) AS gross_revenue,
             COALESCE(SUM(item_level_discount + transaction_level_discount_allocated), 0) AS total_discounts,
@@ -63,7 +57,6 @@ BEGIN
         FROM item_calculations
     ),
     top_products AS (
-        -- Langkah 4: Hitung profit per produk dan ambil 10 teratas
         SELECT
             jsonb_agg(product_data)
         FROM (
@@ -80,8 +73,26 @@ BEGIN
             ORDER BY gross_profit DESC
             LIMIT 10
         ) AS product_data
+    ),
+    daily_trend AS (
+        -- << BLOK BARU: Agregat data per hari untuk grafik >>
+        SELECT
+            jsonb_agg(
+                jsonb_build_object(
+                    'date', daily_summary.day,
+                    'net_revenue', daily_summary.net_revenue,
+                    'gross_profit', daily_summary.gross_profit
+                ) ORDER BY daily_summary.day
+            )
+        FROM (
+            SELECT
+                DATE_TRUNC('day', transaction_date)::DATE AS day,
+                SUM(gross_revenue_item - (item_level_discount + transaction_level_discount_allocated)) AS net_revenue,
+                SUM(gross_revenue_item - (item_level_discount + transaction_level_discount_allocated) - cogs_item) AS gross_profit
+            FROM item_calculations
+            GROUP BY day
+        ) AS daily_summary
     )
-    -- Langkah 5: Gabungkan semua hasil ke dalam satu JSON
     SELECT jsonb_build_object(
         'summary', jsonb_build_object(
             'gross_revenue', s.gross_revenue,
@@ -92,7 +103,8 @@ BEGIN
             'gross_margin', CASE WHEN s.net_revenue > 0 THEN ((s.net_revenue - s.total_cogs) / s.net_revenue) * 100 ELSE 0 END,
             'total_tax_collected', s.total_tax_collected
         ),
-        'top_products', COALESCE((SELECT * FROM top_products), '[]'::jsonb)
+        'top_products', COALESCE((SELECT * FROM top_products), '[]'::jsonb),
+        'daily_trend', COALESCE((SELECT * FROM daily_trend), '[]'::jsonb) -- Tambahkan data tren ke output
     )
     INTO v_report
     FROM summary s;

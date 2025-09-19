@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { AreaChart, BarChart, Calendar as CalendarIcon, Loader2, Landmark } from 'lucide-react';
+import { AreaChart, BarChart, Loader2 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { id as indonesia } from 'date-fns/locale';
 
 import { SalesReportData } from './actions';
@@ -20,7 +20,6 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianG
 const Button = ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => <button {...props}>{children}</button>;
 
 // --- Komponen Anak ---
-
 const StatCard = ({ title, value, helpText }: { title: string, value: string, helpText?: string }) => (
     <div className="p-4 bg-white dark:bg-gray-800/50 rounded-lg border">
         <h3 className="text-sm font-medium text-gray-500">{title}</h3>
@@ -66,23 +65,28 @@ export function SalesReportClient({
         });
     };
 
-    const formatCurrency = (value: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(value);
-
+    const formatCurrency = (value: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
+    const formatDateForChart = (dateString: string) => format(parseISO(dateString), 'd MMM', { locale: indonesia });
+    
     return (
         <div className="w-full">
             <h1 className="text-2xl font-bold mb-2">Laporan Penjualan & Laba</h1>
             <p className="text-gray-500 mb-6">Analisis performa bisnis Anda dalam rentang waktu tertentu.</p>
 
             {/* Filter Controls */}
-            <div className="p-4 bg-white dark:bg-gray-800/50 rounded-lg border mb-6 flex flex-wrap items-center gap-4">
-                <div className="grid gap-2">
-                     {/* Placeholder untuk Date Range Picker */}
-                    <p className="text-sm text-gray-600">Pilih Rentang Tanggal</p>
-                    <input type="date" name="from" defaultValue={format(date?.from || new Date(), 'yyyy-MM-dd')} onChange={(e) => setDate(d => ({...d, from: new Date(e.target.value)}))} className="p-2 border rounded" />
-                    <input type="date" name="to" defaultValue={format(date?.to || new Date(), 'yyyy-MM-dd')} onChange={(e) => setDate(d => ({...d, to: new Date(e.target.value)}))} className="p-2 border rounded" />
+            <div className="p-4 bg-white dark:bg-gray-800/50 rounded-lg border mb-6 flex flex-wrap items-end gap-4">
+                <div className="flex items-end gap-2">
+                    <div>
+                        <label htmlFor="from" className="text-sm font-medium text-gray-600">Dari Tanggal</label>
+                        <input id="from" type="date" name="from" defaultValue={format(date?.from || new Date(), 'yyyy-MM-dd')} onChange={(e) => setDate(d => ({...d, from: new Date(e.target.value)}))} className="p-2 border rounded w-full mt-1" />
+                    </div>
+                    <div>
+                         <label htmlFor="to" className="text-sm font-medium text-gray-600">Sampai Tanggal</label>
+                        <input id="to" type="date" name="to" defaultValue={format(date?.to || new Date(), 'yyyy-MM-dd')} onChange={(e) => setDate(d => ({...d, to: new Date(e.target.value)}))} className="p-2 border rounded w-full mt-1" />
+                    </div>
                 </div>
                 {/* Placeholder untuk Filter Outlet */}
-                <Button onClick={handleApplyFilter} disabled={isPending} className="self-end px-4 py-2 bg-teal-600 text-white rounded">
+                <Button onClick={handleApplyFilter} disabled={isPending} className="px-4 py-2 bg-teal-600 text-white rounded">
                     {isPending ? <Loader2 className="animate-spin" /> : "Terapkan Filter"}
                 </Button>
             </div>
@@ -94,7 +98,7 @@ export function SalesReportClient({
                 </div>
             ) : !initialData ? (
                 <div className="text-center p-12">
-                    <p>Gagal memuat data laporan. Silakan coba lagi.</p>
+                    <p>Gagal memuat data laporan atau tidak ada data pada rentang tanggal ini.</p>
                 </div>
             ) : (
                 <div className="space-y-6">
@@ -105,6 +109,24 @@ export function SalesReportClient({
                         <StatCard title="Laba Kotor" value={formatCurrency(initialData.summary.gross_profit)} />
                         <StatCard title="Margin Laba" value={`${initialData.summary.gross_margin.toFixed(2)}%`} />
                         <StatCard title="Pajak Terkumpul" value={formatCurrency(initialData.summary.total_tax_collected)} helpText="Untuk disetor" />
+                    </div>
+
+                    {/* Grafik Tren */}
+                    <div>
+                        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2"><AreaChart /> Tren Harian</h2>
+                         <div className="p-4 bg-white dark:bg-gray-800/50 rounded-lg border h-72">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={initialData.daily_trend}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="date" tickFormatter={formatDateForChart} />
+                                    <YAxis tickFormatter={(value) => `Rp ${Number(value) / 1000}k`} />
+                                    <Tooltip formatter={(value:any) => formatCurrency(Number(value))} />
+                                    <Legend />
+                                    <Line type="monotone" dataKey="net_revenue" name="Pendapatan" stroke="#0d9488" strokeWidth={2} />
+                                    <Line type="monotone" dataKey="gross_profit" name="Laba Kotor" stroke="#8b5cf6" strokeWidth={2} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
 
                     {/* Top Products Table */}

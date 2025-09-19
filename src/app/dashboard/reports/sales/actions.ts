@@ -20,6 +20,11 @@ export type SalesReportData = {
         net_revenue: number;
         gross_profit: number;
     }[];
+    daily_trend: {
+        date: string;
+        net_revenue: number;
+        gross_profit: number;
+    }[];
 } | null;
 
 async function getSupabaseAndOrgId() {
