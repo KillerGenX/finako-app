@@ -1,6 +1,8 @@
 "use server";
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import ExcelJS from 'exceljs';
+import { format } from 'date-fns';
 
 // --- Tipe Data untuk Laporan ---
 export type SalesReportData = {
@@ -27,6 +29,7 @@ export type SalesReportData = {
     }[];
 } | null;
 
+// (Helper tidak berubah)
 async function getSupabaseAndOrgId() {
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -43,6 +46,7 @@ async function getSupabaseAndOrgId() {
 
     return { supabase, organization_id: member.organization_id };
 }
+
 
 export async function getSalesAndProfitReport(
     startDate: Date, 
@@ -69,6 +73,7 @@ export async function getSalesAndProfitReport(
     }
 }
 
+
 export async function getOutletsForFilter() {
     try {
         const { supabase, organization_id } = await getSupabaseAndOrgId();
@@ -83,5 +88,105 @@ export async function getOutletsForFilter() {
     } catch (e: any) {
         console.error("Error fetching outlets:", e.message);
         return [];
+    }
+}
+
+
+// --- Server Action BARU untuk Ekspor Excel ---
+export async function exportSalesReportToExcel(
+    startDate: Date, 
+    endDate: Date,
+    outletId: string | null = null,
+    outletName: string = 'Semua Outlet'
+): Promise<{ success: boolean; data?: string; message?: string }> {
+    try {
+        const reportData = await getSalesAndProfitReport(startDate, endDate, outletId);
+        if (!reportData) {
+            throw new Error("Tidak ada data untuk diekspor.");
+        }
+
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = 'Finako App';
+        workbook.created = new Date();
+
+        // --- Sheet 1: Ringkasan Laporan ---
+        const summarySheet = workbook.addWorksheet('Ringkasan Laporan');
+        summarySheet.mergeCells('A1:B1');
+        summarySheet.getCell('A1').value = 'Laporan Penjualan & Laba';
+        summarySheet.getCell('A1').font = { size: 16, bold: true };
+        
+        summarySheet.getCell('A2').value = 'Periode:';
+        summarySheet.getCell('B2').value = `${format(startDate, 'd MMM yyyy')} - ${format(endDate, 'd MMM yyyy')}`;
+        summarySheet.getCell('A3').value = 'Outlet:';
+        summarySheet.getCell('B3').value = outletName;
+        
+        summarySheet.getCell('A5').value = 'Ringkasan Keuangan';
+        summarySheet.getCell('A5').font = { bold: true };
+
+        const summaryData = [
+            ['Pendapatan Bersih (Setelah Diskon)', reportData.summary.net_revenue],
+            ['Total HPP (Modal)', reportData.summary.total_cogs],
+            ['Laba Kotor', reportData.summary.gross_profit],
+            ['Margin Laba', reportData.summary.gross_margin / 100], // Simpan sebagai angka
+            ['Pajak Terkumpul (Untuk Disetor)', reportData.summary.total_tax_collected]
+        ];
+        summarySheet.addRows(summaryData);
+        
+        // Styling
+        summarySheet.getCell('B8').font = { bold: true }; // Laba kotor
+        summarySheet.getColumn('A').width = 35;
+        summarySheet.getColumn('B').width = 20;
+        summarySheet.getColumn('B').numFmt = '"Rp "#,##0.00;[Red]-"Rp "#,##0.00';
+        summarySheet.getCell('B9').numFmt = '0.00%'; // Margin
+
+
+        // --- Sheet 2: Produk Paling Menguntungkan ---
+        const productsSheet = workbook.addWorksheet('Produk Paling Menguntungkan');
+        productsSheet.columns = [
+            { header: 'Produk', key: 'product_name', width: 40 },
+            { header: 'SKU', key: 'sku', width: 20 },
+            { header: 'Unit Terjual', key: 'total_quantity_sold', width: 15 },
+            { header: 'Pendapatan Bersih', key: 'net_revenue', width: 25 },
+            { header: 'Laba Kotor', key: 'gross_profit', width: 25 },
+        ];
+        productsSheet.getRow(1).font = { bold: true };
+        productsSheet.addRows(reportData.top_products);
+
+        // Styling
+        productsSheet.getColumn('D').numFmt = '"Rp "#,##0.00';
+        productsSheet.getColumn('E').numFmt = '"Rp "#,##0.00';
+        productsSheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+
+        // --- Sheet 3: Data Tren Harian ---
+        const trendSheet = workbook.addWorksheet('Data Tren Harian');
+        trendSheet.columns = [
+            { header: 'Tanggal', key: 'date', width: 20 },
+            { header: 'Pendapatan Bersih', key: 'net_revenue', width: 25 },
+            { header: 'Laba Kotor', key: 'gross_profit', width: 25 },
+        ];
+        trendSheet.getRow(1).font = { bold: true };
+        
+        const trendData = reportData.daily_trend.map(d => ({
+            ...d,
+            date: new Date(d.date) // Konversi string ke objek Date untuk pemformatan
+        }));
+        trendSheet.addRows(trendData);
+
+        // Styling
+        trendSheet.getColumn('A').numFmt = 'd mmmm yyyy';
+        trendSheet.getColumn('B').numFmt = '"Rp "#,##0.00';
+        trendSheet.getColumn('C').numFmt = '"Rp "#,##0.00';
+        trendSheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const base64 = Buffer.from(buffer).toString('base64');
+
+        return { success: true, data: base64 };
+
+    } catch (e: any) {
+        console.error("Excel Export Error:", e.message);
+        return { success: false, message: e.message };
     }
 }

@@ -1,23 +1,17 @@
 "use client";
 
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { AreaChart, BarChart, Loader2 } from 'lucide-react';
+import { AreaChart, BarChart, Loader2, Download } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 import { format, parseISO } from 'date-fns';
 import { id as indonesia } from 'date-fns/locale';
 
-import { SalesReportData } from './actions';
+import { SalesReportData, exportSalesReportToExcel } from './actions';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
 
-// (Asumsi komponen UI ini ada di direktori yang benar)
-// import { Button } from '@/components/ui/button';
-// import { Calendar } from '@/components/ui/calendar';
-// import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-// --- Komponen UI Lokal (sementara) ---
-const Button = ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => <button {...props}>{children}</button>;
+// --- Tipe Data ---
+type Outlet = { id: string; name: string };
 
 // --- Komponen Anak ---
 const StatCard = ({ title, value, helpText }: { title: string, value: string, helpText?: string }) => (
@@ -30,23 +24,27 @@ const StatCard = ({ title, value, helpText }: { title: string, value: string, he
 
 // --- Komponen Utama ---
 export function SalesReportClient({ 
-    initialData, 
+    initialData,
+    outlets,
     defaultStartDate, 
     defaultEndDate 
 }: { 
     initialData: SalesReportData, 
+    outlets: Outlet[],
     defaultStartDate: Date, 
     defaultEndDate: Date 
 }) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const [isPending, startTransition] = useTransition();
+    const [isFiltering, startFiltering] = useTransition();
+    const [isExporting, startExporting] = useTransition();
 
     const [date, setDate] = useState<DateRange | undefined>({
         from: defaultStartDate,
         to: defaultEndDate,
     });
+    const [selectedOutlet, setSelectedOutlet] = useState(searchParams.get('outletId') || 'all');
 
     const handleApplyFilter = () => {
         const current = new URLSearchParams(Array.from(searchParams.entries()));
@@ -57,11 +55,40 @@ export function SalesReportClient({
         if (date?.to) current.set("to", format(date.to, 'yyyy-MM-dd'));
         else current.delete("to");
 
+        if (selectedOutlet && selectedOutlet !== 'all') {
+            current.set("outletId", selectedOutlet);
+        } else {
+            current.delete("outletId");
+        }
+
         const search = current.toString();
         const query = search ? `?${search}` : "";
 
-        startTransition(() => {
+        startFiltering(() => {
             router.push(`${pathname}${query}`);
+        });
+    };
+    
+    const handleExport = () => {
+        startExporting(async () => {
+            const startDate = date?.from || defaultStartDate;
+            const endDate = date?.to || defaultEndDate;
+            const outletId = selectedOutlet === 'all' ? null : selectedOutlet;
+            const outletName = outlets.find(o => o.id === outletId)?.name || 'Semua Outlet';
+            
+            const result = await exportSalesReportToExcel(startDate, endDate, outletId, outletName);
+            
+            if (result.success && result.data) {
+                const link = document.createElement("a");
+                link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${result.data}`;
+                const period = `${format(startDate, 'yyyyMMdd')}-${format(endDate, 'yyyyMMdd')}`;
+                link.download = `Laporan_Penjualan_${period}.xlsx`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                alert(`Gagal mengekspor data: ${result.message}`);
+            }
         });
     };
 
@@ -85,13 +112,22 @@ export function SalesReportClient({
                         <input id="to" type="date" name="to" defaultValue={format(date?.to || new Date(), 'yyyy-MM-dd')} onChange={(e) => setDate(d => ({...d, to: new Date(e.target.value)}))} className="p-2 border rounded w-full mt-1" />
                     </div>
                 </div>
-                {/* Placeholder untuk Filter Outlet */}
-                <Button onClick={handleApplyFilter} disabled={isPending} className="px-4 py-2 bg-teal-600 text-white rounded">
-                    {isPending ? <Loader2 className="animate-spin" /> : "Terapkan Filter"}
-                </Button>
+                <div>
+                     <label htmlFor="outlet" className="text-sm font-medium text-gray-600">Outlet</label>
+                     <select id="outlet" value={selectedOutlet} onChange={(e) => setSelectedOutlet(e.target.value)} className="p-2 border rounded w-full mt-1 min-w-[150px]">
+                         <option value="all">Semua Outlet</option>
+                         {outlets.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                     </select>
+                </div>
+                <button onClick={handleApplyFilter} disabled={isFiltering || isExporting} className="px-4 py-2 bg-teal-600 text-white rounded disabled:opacity-50">
+                    {isFiltering ? <Loader2 className="animate-spin" /> : "Terapkan"}
+                </button>
+                <button onClick={handleExport} disabled={isFiltering || isExporting} className="px-4 py-2 bg-green-600 text-white rounded flex items-center gap-2 disabled:opacity-50">
+                    {isExporting ? <Loader2 className="animate-spin" /> : <><Download size={16} /> Export Excel</>}
+                </button>
             </div>
 
-            {isPending ? (
+            {isFiltering ? (
                 <div className="text-center p-12">
                     <Loader2 className="mx-auto h-12 w-12 animate-spin text-teal-600" />
                     <p className="mt-4">Memuat laporan...</p>
