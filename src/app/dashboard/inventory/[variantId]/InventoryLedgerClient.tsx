@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, History, FileText, Move, ArchiveX, CheckCircle, Loader2 } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { getInventoryLedgerDetails, setInitialStock, InitialStockInput } from './actions';
-import { ViewReceiptModal } from '../../history/ViewReceiptModal'; // Impor modal struk
+import { ViewReceiptModal } from '../../history/ViewReceiptModal';
 
 // --- Tipe Data ---
 type ProductVariant = { id: string; name: string; sku: string | null };
@@ -15,13 +15,7 @@ type LedgerDetails = NonNullable<Awaited<ReturnType<typeof getInventoryLedgerDet
 
 // --- Komponen-komponen Anak ---
 
-// Modal Stok Awal (tidak berubah)
-function InitialStockModal({ outlets, variantId, onClose, onSave }: {
-    outlets: Outlet[],
-    variantId: string,
-    onClose: () => void,
-    onSave: (variantId: string, stocks: InitialStockInput[]) => Promise<any>
-}) {
+function InitialStockModal({ outlets, variantId, onClose, onSave }: { /* ... (tidak berubah) */ }) {
     const [stocks, setStocks] = useState<Map<string, number>>(new Map());
     const [isSaving, startSavingTransition] = useTransition();
     const handleSave = () => {
@@ -45,40 +39,39 @@ function InitialStockModal({ outlets, variantId, onClose, onSave }: {
     );
 }
 
-// Komponen Buku Besar - DIPERBARUI
 function StockLedgerTable({ ledger, onViewTransaction }: { 
     ledger: LedgerDetails['ledger'],
     onViewTransaction: (transactionId: string) => void 
 }) {
     const formatDate = (date: string) => new Date(date).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
 
-    // Fungsi untuk membuat link referensi yang benar
     const getReferenceLink = (move: LedgerDetails['ledger'][0]) => {
         if (!move.reference_id || !move.reference_number) return <span>-</span>;
 
         switch (move.movement_type) {
             case 'sale':
                 return <button onClick={() => onViewTransaction(move.reference_id!)} className="text-teal-600 hover:underline font-mono">{move.reference_number}</button>;
+            
             case 'transfer_in':
             case 'transfer_out':
                 return <Link href={`/dashboard/inventory/transfers/${move.reference_id}`} className="text-teal-600 hover:underline font-mono">{move.reference_number}</Link>;
+            
+            // --- PERBAIKAN LOGIKA ---
             case 'purchase_received':
-                // Cek nomor referensi untuk membedakan PO dan Penerimaan Lainnya
                 if (move.reference_number.startsWith('PO-')) {
                     return <Link href={`/dashboard/inventory/purchase-orders/${move.reference_id}`} className="text-teal-600 hover:underline font-mono">{move.reference_number}</Link>;
-                } else if (move.reference_number.startsWith('OR-')) {
-                    // Halaman detail untuk other-receivings belum dibuat, jadi non-aktifkan link
-                    return <span className="font-mono">{move.reference_number}</span>;
                 }
-                return <span className="font-mono">{move.reference_number}</span>;
+                // Jika bukan PO, berarti 'other_receiving'
+                return <Link href={`/dashboard/inventory/other-receivings/${move.reference_id}`} className="text-teal-600 hover:underline font-mono">{move.reference_number}</Link>;
+
             case 'adjustment':
                  if (move.reference_number.startsWith('SO-')) {
                     return <Link href={`/dashboard/inventory/stock-opname/${move.reference_id}`} className="text-teal-600 hover:underline font-mono">{move.reference_number}</Link>;
-                } else if (move.reference_number.startsWith('WO-')) {
-                     // Halaman detail untuk write-offs belum dibuat, jadi non-aktifkan link
-                    return <span className="font-mono">{move.reference_number}</span>;
                 }
-                return <span className="font-mono">{move.reference_number}</span>;
+                // Jika bukan SO, berarti 'write_off'
+                return <Link href={`/dashboard/inventory/write-offs/${move.reference_id}`} className="text-teal-600 hover:underline font-mono">{move.reference_number}</Link>;
+            // -------------------------
+
             default:
                 return <span className="font-mono">{move.reference_number}</span>;
         }
@@ -91,14 +84,13 @@ function StockLedgerTable({ ledger, onViewTransaction }: {
     );
 }
 
-
 // --- Komponen Utama ---
 export function InventoryLedgerClient({ productVariant, outlets, initialDetails, hasInitialStock }: {
     productVariant: ProductVariant; outlets: Outlet[]; initialDetails: LedgerDetails; hasInitialStock: boolean;
 }) {
+    // ... (Tidak ada perubahan di sini)
     const [details, setDetails] = useState(initialDetails);
     const [showInitialStockModal, setShowInitialStockModal] = useState(false);
-    // State baru untuk modal struk
     const [viewingTransactionId, setViewingTransactionId] = useState<string | null>(null);
     const router = useRouter();
 
