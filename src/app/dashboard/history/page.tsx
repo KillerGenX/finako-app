@@ -1,15 +1,87 @@
 // src/app/dashboard/history/page.tsx
+import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
 import { HistoryClient } from './HistoryClient';
-import { getTransactionHistory } from './actions';
+import { getClosingReportData } from './actions';
 
-export default async function HistoryPage() {
-    // Memanggil tanpa filter untuk memuat data awal halaman pertama
-    const initialTransactions = await getTransactionHistory({ page: 1, pageSize: 25 });
+async function getFilterData(orgId: string) {
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { cookies: { get: (name: string) => cookieStore.get(name)?.value } }
+    );
 
+    // --- PERBAIKAN: Logika Pengambilan Data yang Benar ---
+
+    // 1. Ambil data outlet (ini sudah benar)
+    const outletsPromise = supabase.from('outlets').select('id, name').eq('organization_id', orgId).order('name');
+
+    // 2. Ambil semua anggota (kasir/admin) dan user_id mereka
+    const membersPromise = supabase
+        .from('organization_members')
+        .select('id, user_id') // Hanya ambil ID anggota dan ID pengguna
+        .eq('organization_id', orgId)
+        .in('role', ['admin', 'cashier']);
+        
+    const [outletsResult, membersResult] = await Promise.all([outletsPromise, membersPromise]);
+
+    if (outletsResult.error) throw new Error("Gagal mengambil data outlet.");
+    if (membersResult.error) throw new Error("Gagal mengambil data anggota.");
+    
+    const memberUserIds = membersResult.data.map(m => m.user_id);
+
+    // 3. Ambil profil untuk semua user_id yang ditemukan
+    const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name') // `id` di sini adalah user_id
+        .in('id', memberUserIds);
+
+    if (profilesError) throw new Error("Gagal mengambil data profil kasir.");
+
+    // 4. Gabungkan hasilnya
+    const cashiers = membersResult.data.map(member => {
+        const profile = profiles.find(p => p.id === member.user_id);
+        return {
+            id: member.id, // Ini adalah organization_members.id
+            name: profile?.full_name || 'Tanpa Nama'
+        };
+    });
+    
+    return { outlets: outletsResult.data, cashiers };
+}
+
+
+export default async function HistoryPage({ searchParams }: {
+    searchParams: { date?: string, outletId?: string, cashierId?: string }
+}) {
+    const { date, outletId, cashierId } = searchParams;
+    const targetDate = date ? new Date(date) : new Date();
+
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { cookies: { get: (name: string) => cookieStore.get(name)?.value } }
+    );
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: member } = await supabase.from('organization_members').select('organization_id, role').eq('user_id', user!.id).single();
+
+    if (!member) {
+        return <div>Anda bukan bagian dari organisasi manapun.</div>;
+    }
+
+    const [reportData, { outlets, cashiers }] = await Promise.all([
+        getClosingReportData(targetDate, outletId, cashierId),
+        getFilterData(member.organization_id)
+    ]);
+    
     return (
-        <div className="flex flex-col w-full h-full">
-            <h1 className="text-2xl font-bold mb-6">Riwayat Transaksi</h1>
-            <HistoryClient initialData={initialTransactions} />
-        </div>
+        <HistoryClient 
+            initialReportData={reportData}
+            outlets={outlets}
+            cashiers={cashiers}
+            userRole={member.role as 'admin' | 'cashier'}
+        />
     );
 }

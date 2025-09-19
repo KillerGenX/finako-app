@@ -1,126 +1,169 @@
 "use client";
 
-import { useState, useEffect, useTransition } from 'react';
-import { Eye, X, Search, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
-import { TransactionHistoryItem, getTransactionHistory, HistoryQueryResult } from './actions';
-import { useDebounce } from '@/lib/hooks/useDebounce';
-import { ViewReceiptModal } from './ViewReceiptModal'; // Impor modal dari file barunya
+import { useState, useTransition } from 'react';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { format } from 'date-fns';
+import { Printer, Calendar as CalendarIcon, Store, User, Loader2, Eye } from 'lucide-react';
+import { ClosingReportData } from './actions';
+import { ViewReceiptModal } from './ViewReceiptModal'; // <<-- 1. IMPORTAR EL MODAL
+import { PrintableClosingReport } from './PrintableClosingReport';
 
-export function HistoryClient({ initialData }: { initialData: HistoryQueryResult }) {
-    const [result, setResult] = useState(initialData);
-    const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
+// ... (Componente StatCard no cambia)
+const StatCard = ({ title, value }: { title: string, value: string }) => (
+    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+        <h3 className="text-sm font-medium text-gray-500">{title}</h3>
+        <p className="text-xl font-semibold mt-1">{value}</p>
+    </div>
+);
+
+// --- Componente Principal ---
+export function HistoryClient({
+    initialReportData,
+    outlets,
+    cashiers,
+    userRole
+}: {
+    initialReportData: ClosingReportData,
+    outlets: { id: string; name: string }[],
+    cashiers: { id: string; name: string }[],
+    userRole: 'admin' | 'cashier'
+}) {
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     const [isPending, startTransition] = useTransition();
+    const [viewingTransactionId, setViewingTransactionId] = useState<string | null>(null); // Estado para el modal
 
-    // State untuk filter
-    const [searchQuery, setSearchQuery] = useState('');
-    const [page, setPage] = useState(1);
-    const [dateRange, setDateRange] = useState<{ from?: string, to?: string }>({});
+    // ... (Lógica de filtro no cambia)
+    const [date, setDate] = useState(searchParams.get('date') || format(new Date(), 'yyyy-MM-dd'));
+    const [outletId, setOutletId] = useState(searchParams.get('outletId') || outlets[0]?.id || '');
+    const [cashierId, setCashierId] = useState(searchParams.get('cashierId') || 'all');
 
-    const debouncedSearch = useDebounce(searchQuery, 500);
-    const pageSize = 25;
-
-    // Efek untuk mengambil data KETIKA FILTER UTAMA (pencarian, tanggal) BERUBAH
-    useEffect(() => {
-        if (page !== 1) {
-            setPage(1);
-            return;
-        }
-        startTransition(async () => {
-            const filters = {
-                search: debouncedSearch,
-                startDate: dateRange.from,
-                endDate: dateRange.to,
-                page: 1,
-                pageSize: pageSize
-            };
-            const newData = await getTransactionHistory(filters);
-            setResult(newData);
+    const handleApplyFilter = () => {
+        const params = new URLSearchParams();
+        params.set('date', date);
+        if (outletId) params.set('outletId', outletId);
+        if (cashierId !== 'all') params.set('cashierId', cashierId);
+        
+        startTransition(() => {
+            router.push(`${pathname}?${params.toString()}`);
         });
-    }, [debouncedSearch, dateRange]);
+    };
+    
+    const formatCurrency = (value: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(value);
 
-    // Efek terpisah HANYA untuk mengambil data KETIKA HALAMAN (page) BERUBAH
-    useEffect(() => {
-        if (page === 1 && result.data.length > 0 && !debouncedSearch && !dateRange.from && !dateRange.to) return;
-
-        startTransition(async () => {
-            const filters = {
-                search: debouncedSearch,
-                startDate: dateRange.from,
-                endDate: dateRange.to,
-                page: page,
-                pageSize: pageSize
-            };
-            const newData = await getTransactionHistory(filters);
-            setResult(newData);
-        });
-    }, [page]);
-
-
-    const totalPages = Math.ceil(result.total_count / pageSize);
-
-    const handleDateChange = (boundary: 'from' | 'to', value: string) => {
-        setDateRange(prev => ({...prev, [boundary]: value || undefined}));
-    }
-
-    // Helper functions
-    const formatCurrency = (amount: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
-    const formatDate = (dateString: string) => new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(dateString));
+    const report = initialReportData;
 
     return (
         <>
-            {selectedTransactionId && <ViewReceiptModal transactionId={selectedTransactionId} onClose={() => setSelectedTransactionId(null)} />}
+            {/* 2. AGREGAR LA LÓGICA DE RENDERIZADO DEL MODAL */}
+            {viewingTransactionId && <ViewReceiptModal transactionId={viewingTransactionId} onClose={() => setViewingTransactionId(null)} />}
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                    <input type="text" placeholder="Cari no. transaksi, pelanggan..." className="w-full pl-10 pr-4 py-2 border rounded-lg bg-white dark:bg-gray-800" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                    <input type="date" className="p-2 border rounded-lg bg-white dark:bg-gray-800" value={dateRange.from || ''} onChange={e => handleDateChange('from', e.target.value)} />
-                    <input type="date" className="p-2 border rounded-lg bg-white dark:bg-gray-800" value={dateRange.to || ''} onChange={e => handleDateChange('to', e.target.value)} />
-                </div>
+            <div className="printable-area">
+                <PrintableClosingReport reportData={report} orgName="Nama Organisasi Anda" />
             </div>
 
-            <div className="border rounded-lg w-full bg-white dark:bg-gray-800/50 relative">
-                {isPending && <div className="absolute inset-0 bg-white/50 dark:bg-black/50 flex justify-center items-center"><Loader2 className="animate-spin text-teal-500" /></div>}
-                <div className="relative w-full overflow-auto">
-                     <table className="w-full caption-bottom text-sm">
-                        <thead className="[&_tr]:border-b"><tr className="border-b transition-colors hover:bg-muted/50">
-                            <th className="h-12 px-4 text-left align-middle font-medium">Tanggal</th>
-                            <th className="h-12 px-4 text-left align-middle font-medium hidden md:table-cell">No. Transaksi</th>
-                            <th className="h-12 px-4 text-left align-middle font-medium">Pelanggan</th>
-                            <th className="h-12 px-4 text-left align-middle font-medium hidden sm:table-cell">Kasir</th>
-                            <th className="h-12 px-4 text-right align-middle font-medium">Total</th>
-                            <th className="h-12 px-4 text-center align-middle font-medium">Aksi</th>
-                        </tr></thead>
-                        <tbody className="[&_tr:last-child]:border-0">
-                            {result.data.length > 0 ? result.data.map((tx) => (
-                                <tr key={tx.id} className="border-b transition-colors hover:bg-gray-50 dark:hover:bg-gray-800">
-                                    <td className="p-4 align-middle">{formatDate(tx.transaction_date)}</td>
-                                    <td className="p-4 align-middle font-mono hidden md:table-cell">{tx.transaction_number}</td>
-                                    <td className="p-4 align-middle">{tx.customer_name}</td>
-                                    <td className="p-4 align-middle hidden sm:table-cell">{tx.cashier_name}</td>
-                                    <td className="p-4 align-middle text-right font-semibold">{formatCurrency(tx.grand_total)}</td>
-                                    <td className="p-4 align-middle text-center">
-                                        <button onClick={() => setSelectedTransactionId(tx.id)} className="text-teal-600 hover:text-teal-800" title="Lihat Struk"><Eye size={20} /></button>
-                                    </td>
-                                </tr>
-                            )) : (
-                                <tr><td colSpan={6} className="p-8 text-center text-gray-500">Tidak ada data yang cocok dengan filter Anda.</td></tr>
-                            )}
-                        </tbody>
-                    </table>
+            <div className="w-full no-print">
+                <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h1 className="text-2xl font-bold">Laporan Penutupan Harian</h1>
+                        <p className="text-gray-500">Ringkasan transaksi untuk rekonsiliasi kasir.</p>
+                    </div>
+                    <button 
+                        onClick={() => window.print()} 
+                        className="px-4 py-2 bg-teal-600 text-white rounded-lg flex items-center gap-2"
+                    >
+                        <Printer size={16} /> Cetak Laporan
+                    </button>
                 </div>
+
+                {/* Controles de Filtro */}
+                <div className="p-4 bg-white dark:bg-gray-800/50 rounded-lg border mb-6 flex flex-wrap items-end gap-4">
+                    <div>
+                        <label htmlFor="date" className="text-sm font-medium">Tanggal</label>
+                        <input type="date" id="date" value={date} onChange={e => setDate(e.target.value)} className="p-2 border rounded w-full mt-1" />
+                    </div>
+                    {userRole !== 'cashier' && (
+                        <>
+                            <div>
+                                <label htmlFor="outlet" className="text-sm font-medium">Outlet</label>
+                                <select id="outlet" value={outletId} onChange={e => setOutletId(e.target.value)} className="p-2 border rounded w-full mt-1">
+                                    {outlets.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label htmlFor="cashier" className="text-sm font-medium">Kasir</label>
+                                <select id="cashier" value={cashierId} onChange={e => setCashierId(e.target.value)} className="p-2 border rounded w-full mt-1">
+                                    <option value="all">Semua Kasir</option>
+                                    {cashiers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                </select>
+                            </div>
+                        </>
+                    )}
+                    <button onClick={handleApplyFilter} disabled={isPending} className="px-4 py-2 bg-blue-600 text-white rounded">
+                        {isPending ? <Loader2 className="animate-spin" /> : "Tampilkan"}
+                    </button>
+                </div>
+                
+                {isPending ? (
+                    <div className="text-center p-12"><Loader2 className="mx-auto h-12 w-12 animate-spin text-blue-600" /></div>
+                ) : !report ? (
+                    <div className="text-center p-12"><p>Tidak ada data transaksi untuk filter yang dipilih.</p></div>
+                ) : (
+                    <div className="space-y-6">
+                        {/* Área de Resumen */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <StatCard title="Total Penjualan Bersih" value={formatCurrency(report.summary.net_sales)} />
+                            <StatCard title="Total Transaksi" value={report.summary.total_transactions.toString()} />
+                            <StatCard title="Total Diskon" value={formatCurrency(report.summary.total_discounts)} />
+                            <StatCard title="Pajak Terkumpul" value={formatCurrency(report.summary.total_tax_collected)} />
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-semibold mb-2">Rincian Metode Pembayaran</h2>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                {report.summary.payment_methods.map(pm => (
+                                    <StatCard key={pm.payment_method} title={`Total ${pm.payment_method.toUpperCase()}`} value={formatCurrency(pm.total_amount)} />
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Lista de Transacciones Detallada */}
+                        <div>
+                            <h2 className="text-lg font-semibold mb-2">Daftar Transaksi</h2>
+                             <div className="border rounded-lg bg-white dark:bg-gray-800/50">
+                                <table className="w-full text-sm">
+                                    <thead><tr className="border-b"><th className="p-3 text-left">Waktu</th><th className="p-3 text-left">No. Struk</th><th className="p-3 text-left">Kasir</th><th className="p-3 text-right">Total</th><th className="p-3 text-center">Aksi</th></tr></thead>
+                                    <tbody>
+                                        {report.transactions.map(tx => (
+                                            <tr key={tx.id} className="border-b">
+                                                <td className="p-3">{format(new Date(tx.transaction_date), 'HH:mm:ss')}</td>
+                                                <td className="p-3 font-mono">{tx.transaction_number}</td>
+                                                <td className="p-3">{tx.member_name}</td>
+                                                <td className="p-3 text-right font-semibold">{formatCurrency(tx.grand_total)}</td>
+                                                <td className="p-3 text-center">
+                                                    {/* 3. CONECTAR EL ONCLICK AL ESTADO */}
+                                                    <button onClick={() => setViewingTransactionId(tx.id)} className="text-gray-500 hover:text-teal-600">
+                                                        <Eye size={16} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
             
-            <div className="flex items-center justify-between mt-4">
-                <span className="text-sm text-gray-600">Total {result.total_count} transaksi</span>
-                <div className="flex items-center gap-2">
-                    <button onClick={() => setPage(p => p - 1)} disabled={page <= 1 || isPending} className="p-2 disabled:opacity-50"><ChevronLeft /></button>
-                    <span className="text-sm">Halaman {page} dari {totalPages > 0 ? totalPages : 1}</span>
-                    <button onClick={() => setPage(p => p + 1)} disabled={page >= totalPages || isPending} className="p-2 disabled:opacity-50"><ChevronRight /></button>
-                </div>
-            </div>
+            <style jsx global>{`
+                @media print {
+                    body * { visibility: hidden; }
+                    .printable-area, .printable-area * { visibility: visible; }
+                    .printable-area { position: absolute; left: 0; top: 0; width: 100%; }
+                    .no-print { display: none !important; }
+                }
+            `}</style>
         </>
     );
 }
