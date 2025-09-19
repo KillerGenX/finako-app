@@ -92,7 +92,7 @@ export async function getOutletsForFilter() {
 }
 
 
-// --- Server Action BARU untuk Ekspor Excel ---
+// --- Server Action untuk Ekspor Excel dengan STYLING ---
 export async function exportSalesReportToExcel(
     startDate: Date, 
     endDate: Date,
@@ -108,6 +108,13 @@ export async function exportSalesReportToExcel(
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'Finako App';
         workbook.created = new Date();
+
+        // --- Style Definitions ---
+        const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2D3748' } }; // Dark Gray
+        const headerFont: Partial<ExcelJS.Font> = { color: { argb: 'FFFFFFFF' }, bold: true };
+        const borderStyle: Partial<ExcelJS.Borders> = {
+            top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' }
+        };
 
         // --- Sheet 1: Ringkasan Laporan ---
         const summarySheet = workbook.addWorksheet('Ringkasan Laporan');
@@ -127,18 +134,21 @@ export async function exportSalesReportToExcel(
             ['Pendapatan Bersih (Setelah Diskon)', reportData.summary.net_revenue],
             ['Total HPP (Modal)', reportData.summary.total_cogs],
             ['Laba Kotor', reportData.summary.gross_profit],
-            ['Margin Laba', reportData.summary.gross_margin / 100], // Simpan sebagai angka
+            ['Margin Laba', reportData.summary.gross_margin / 100],
             ['Pajak Terkumpul (Untuk Disetor)', reportData.summary.total_tax_collected]
         ];
-        summarySheet.addRows(summaryData);
+        const addedRows = summarySheet.addRows(summaryData);
+        addedRows.forEach(row => {
+            row.getCell(1).border = borderStyle;
+            row.getCell(2).border = borderStyle;
+        });
         
-        // Styling
-        summarySheet.getCell('B8').font = { bold: true }; // Laba kotor
+        summarySheet.getCell('A8').font = { bold: true }; // Laba kotor
         summarySheet.getColumn('A').width = 35;
         summarySheet.getColumn('B').width = 20;
-        summarySheet.getColumn('B').numFmt = '"Rp "#,##0.00;[Red]-"Rp "#,##0.00';
-        summarySheet.getCell('B9').numFmt = '0.00%'; // Margin
-
+        summarySheet.getColumn('B').alignment = { horizontal: 'right' };
+        summarySheet.getColumn('B').numFmt = '"Rp "#,##0;[Red]-"Rp "#,##0';
+        summarySheet.getCell('B9').numFmt = '0.00%';
 
         // --- Sheet 2: Produk Paling Menguntungkan ---
         const productsSheet = workbook.addWorksheet('Produk Paling Menguntungkan');
@@ -149,14 +159,27 @@ export async function exportSalesReportToExcel(
             { header: 'Pendapatan Bersih', key: 'net_revenue', width: 25 },
             { header: 'Laba Kotor', key: 'gross_profit', width: 25 },
         ];
-        productsSheet.getRow(1).font = { bold: true };
+        
+        productsSheet.getRow(1).eachCell(cell => {
+            cell.fill = headerFill;
+            cell.font = headerFont;
+            cell.border = borderStyle;
+        });
+        
         productsSheet.addRows(reportData.top_products);
-
-        // Styling
-        productsSheet.getColumn('D').numFmt = '"Rp "#,##0.00';
-        productsSheet.getColumn('E').numFmt = '"Rp "#,##0.00';
+        productsSheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+            if (rowNumber > 1) { // Skip header
+                row.eachCell(cell => { cell.border = borderStyle; });
+            }
+        });
+        
+        productsSheet.getColumn('C').alignment = { horizontal: 'right' };
+        productsSheet.getColumn('D').numFmt = '"Rp "#,##0';
+        productsSheet.getColumn('D').alignment = { horizontal: 'right' };
+        productsSheet.getColumn('E').numFmt = '"Rp "#,##0';
+        productsSheet.getColumn('E').alignment = { horizontal: 'right' };
         productsSheet.views = [{ state: 'frozen', ySplit: 1 }];
-
+        productsSheet.autoFilter = 'A1:E1';
 
         // --- Sheet 3: Data Tren Harian ---
         const trendSheet = workbook.addWorksheet('Data Tren Harian');
@@ -165,20 +188,28 @@ export async function exportSalesReportToExcel(
             { header: 'Pendapatan Bersih', key: 'net_revenue', width: 25 },
             { header: 'Laba Kotor', key: 'gross_profit', width: 25 },
         ];
-        trendSheet.getRow(1).font = { bold: true };
         
-        const trendData = reportData.daily_trend.map(d => ({
-            ...d,
-            date: new Date(d.date) // Konversi string ke objek Date untuk pemformatan
-        }));
+        trendSheet.getRow(1).eachCell(cell => {
+            cell.fill = headerFill;
+            cell.font = headerFont;
+            cell.border = borderStyle;
+        });
+
+        const trendData = reportData.daily_trend.map(d => ({ ...d, date: new Date(d.date) }));
         trendSheet.addRows(trendData);
+        trendSheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+            if (rowNumber > 1) { // Skip header
+                row.eachCell(cell => { cell.border = borderStyle; });
+            }
+        });
 
-        // Styling
         trendSheet.getColumn('A').numFmt = 'd mmmm yyyy';
-        trendSheet.getColumn('B').numFmt = '"Rp "#,##0.00';
-        trendSheet.getColumn('C').numFmt = '"Rp "#,##0.00';
+        trendSheet.getColumn('B').numFmt = '"Rp "#,##0';
+        trendSheet.getColumn('B').alignment = { horizontal: 'right' };
+        trendSheet.getColumn('C').numFmt = '"Rp "#,##0';
+        trendSheet.getColumn('C').alignment = { horizontal: 'right' };
         trendSheet.views = [{ state: 'frozen', ySplit: 1 }];
-
+        trendSheet.autoFilter = 'A1:C1';
 
         const buffer = await workbook.xlsx.writeBuffer();
         const base64 = Buffer.from(buffer).toString('base64');
