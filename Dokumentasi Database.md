@@ -238,6 +238,14 @@ CREATE TABLE public.product_variants (
 );
 COMMENT ON TABLE public.product_variants IS 'Specific, sellable SKUs with price and stock tracking.';
 
+ALTER TABLE public.product_variants
+ADD COLUMN IF NOT EXISTS reorder_point NUMERIC(10, 4) NOT NULL DEFAULT 0,
+ADD COLUMN IF NOT EXISTS reorder_quantity NUMERIC(10, 4) NOT NULL DEFAULT 0;
+
+COMMENT ON COLUMN public.product_variants.reorder_point IS 'Ambang batas stok minimum. Jika stok aktual di bawah nilai ini, sistem akan memicu peringatan.';
+COMMENT ON COLUMN public.product_variants.reorder_quantity IS 'Jumlah yang disarankan untuk dipesan ulang saat stok mencapai reorder point.';
+
+
 -- 4. Produk Komposit (Resep/BOM)
 CREATE TABLE public.product_composites (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

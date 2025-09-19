@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
-// Schemas
+// ============== Schemas ==============
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
@@ -34,6 +34,8 @@ const VariantSchema = z.object({
     cost_price: z.coerce.number().min(0).optional(),
     sku: z.string().optional(),
     track_stock: z.boolean(),
+    reorder_point: z.coerce.number().min(0).optional(),
+    reorder_quantity: z.coerce.number().min(0).optional(),
 });
 
 const ImageSchema = z.object({
@@ -378,22 +380,43 @@ export async function updateProductTemplate(prevState: FormState, formData: Form
 export async function addOrUpdateVariant(prevState: FormState, formData: FormData): Promise<FormState> {
     const productId = formData.get('product_id') as string;
     try {
-        const { supabase, organization_id } = await getSupabaseAndOrgId();
-        const rawData = { ...Object.fromEntries(formData.entries()), track_stock: formData.get('track_stock') === 'on' };
+        const supabaseAndOrg = await getSupabaseAndOrgId();
+        if(!supabaseAndOrg) {
+            throw new Error("Gagal mendapatkan info otorisasi.");
+        }
+        const { supabase, organization_id } = supabaseAndOrg;
+
+        const rawData = { 
+            ...Object.fromEntries(formData.entries()), 
+            track_stock: formData.get('track_stock') === 'on' 
+        };
         const validatedFields = VariantSchema.safeParse(rawData);
 
-        if (!validatedFields.success) return { message: "Validasi gagal.", errors: validatedFields.error.flatten().fieldErrors };
+        if (!validatedFields.success) {
+            return { message: "Validasi gagal.", errors: validatedFields.error.flatten().fieldErrors };
+        }
 
-        let { variant_id, name, selling_price, cost_price, sku, track_stock } = validatedFields.data;
+        let { 
+            variant_id, name, selling_price, cost_price, sku, track_stock,
+            reorder_point, reorder_quantity 
+        } = validatedFields.data;
+        
         if (!sku || sku.trim() === '') {
             const { data: product } = await supabase.from('products').select('name').eq('id', productId).single();
             sku = generateSku(`${product?.name}-${name}`);
         }
 
         const variantData = {
-            organization_id, product_id: productId, name, selling_price,
-            cost_price: cost_price || 0, sku, track_stock,
+            organization_id, 
+            product_id: productId, 
+            name, 
+            selling_price,
+            cost_price: cost_price || 0, 
+            sku, 
+            track_stock,
             inventory_tracking_method: track_stock ? 'by_quantity' as const : 'none' as const,
+            reorder_point: track_stock ? (reorder_point || 0) : 0,
+            reorder_quantity: track_stock ? (reorder_quantity || 0) : 0,
         };
 
         if (variant_id) {
@@ -413,6 +436,8 @@ export async function addOrUpdateVariant(prevState: FormState, formData: FormDat
     return { message: "success" };
 }
 
+
+// (Fungsi delete tidak berubah)
 export async function deleteProductTemplate(formData: FormData): Promise<void> {
     const productId = formData.get('product_id') as string;
     if (!productId) throw new Error("ID Produk tidak ditemukan.");

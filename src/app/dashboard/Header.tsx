@@ -6,8 +6,7 @@ import { useFormStatus } from 'react-dom';
 import { Bell, ChevronDown, Loader2, Menu } from 'lucide-react';
 import { logout } from '@/app/auth/actions';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabaseClient';
-import { markNotificationsAsRead } from './actions';
+import { markNotificationsAsRead, getNotificationHistory } from './actions';
 
 const DropdownMenu = ({ children }: { children: React.ReactNode }) => <div className="relative inline-block text-left">{children}</div>;
 const DropdownMenuTrigger = ({ children, onClick }: { children: React.ReactNode, onClick: () => void }) => <button type="button" onClick={onClick}>{children}</button>;
@@ -36,7 +35,6 @@ export default function Header({ userInitials, toggleSidebar, notificationCount:
     const userMenuRef = useRef<HTMLDivElement>(null);
     const notificationMenuRef = useRef<HTMLDivElement>(null);
     const pathname = usePathname();
-    const supabase = createClient();
     const [isPending, startTransition] = useTransition();
 
     useEffect(() => {
@@ -67,24 +65,9 @@ export default function Header({ userInitials, toggleSidebar, notificationCount:
 
         if (willOpen) {
             startTransition(async () => {
-                // Pertama, dapatkan sesi pengguna saat ini
-                const { data: { user } } = await supabase.auth.getUser();
-                if (!user) {
-                    setNotifications([]);
-                    return;
-                }
-
-                // Ambil notifikasi HANYA untuk user_id yang sedang login
-                const { data } = await supabase
-                    .from('user_notifications')
-                    .select('*')
-                    .eq('user_id', user.id) // << FIX: Filter keamanan ditambahkan
-                    .eq('is_read', false)
-                    .order('created_at', { ascending: false });
+                const history = await getNotificationHistory();
+                setNotifications(history || []);
                 
-                setNotifications(data || []);
-                
-                // Hanya jalankan jika ada notifikasi yang belum dibaca
                 if (notificationCount > 0) {
                     await markNotificationsAsRead();
                     setNotificationCount(0);
@@ -116,14 +99,17 @@ export default function Header({ userInitials, toggleSidebar, notificationCount:
                             ) : notifications.length > 0 ? (
                                 notifications.map(notif => (
                                     <DropdownMenuItem key={notif.id}>
-                                        <Link href={notif.link || '#'} className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
-                                            <p className="font-medium">{notif.message}</p>
-                                            <p className="text-xs text-gray-400 mt-1">{new Date(notif.created_at).toLocaleString('id-ID')}</p>
+                                        <Link 
+                                            href={notif.link || '#'} 
+                                            className={`block px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${!notif.is_read ? 'bg-teal-50 dark:bg-teal-900/20' : ''}`}
+                                        >
+                                            <p className={`font-medium ${!notif.is_read ? 'text-gray-800 dark:text-gray-100' : 'text-gray-600 dark:text-gray-300'}`}>{notif.message}</p>
+                                            <p className="text-xs text-gray-400 mt-1">{new Date(notif.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                                         </Link>
                                     </DropdownMenuItem>
                                 ))
                             ) : (
-                                <DropdownMenuItem><div className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">Tidak ada notifikasi baru.</div></DropdownMenuItem>
+                                <DropdownMenuItem><div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">Tidak ada notifikasi.</div></DropdownMenuItem>
                             )}
                         </DropdownMenuContent>
                     )}
