@@ -3,23 +3,28 @@ import { SalesReportClient } from './SalesReportClient';
 import { getSalesAndProfitReport, getOutletsForFilter } from './actions';
 import { subDays, startOfDay, endOfDay } from 'date-fns';
 
-export default async function SalesReportPage({ searchParams }: { 
-    searchParams: { from?: string, to?: string, outletId?: string } 
+export default async function SalesReportPage({ 
+    searchParams
+}: { 
+    searchParams: { from?: string; to?: string; outletId?: string } 
 }) {
+    // PERBAIKAN FINAL DAN BENAR: Await searchParams untuk mendapatkan nilainya
+    const { from, to, outletId } = await searchParams;
+
     // Tentukan rentang tanggal default (7 hari terakhir)
-    const toDate = searchParams.to ? new Date(searchParams.to) : new Date();
-    const fromDate = searchParams.from ? new Date(searchParams.from) : subDays(toDate, 6);
+    const toDate = to ? new Date(to) : new Date();
+    const fromDate = from ? new Date(from) : subDays(toDate, 6);
     
     // Pastikan tanggal mencakup keseluruhan hari
     const startDate = startOfDay(fromDate);
     const endDate = endOfDay(toDate);
 
-    // Ambil outletId dari URL
-    const outletId = searchParams.outletId || null;
+    // Ambil outletId dari URL 
+    const finalOutletId = outletId || null;
 
     // Panggil kedua server action secara bersamaan untuk efisiensi
     const [initialReportData, outlets] = await Promise.all([
-        getSalesAndProfitReport(startDate, endDate, outletId),
+        getSalesAndProfitReport(startDate, endDate, finalOutletId),
         getOutletsForFilter()
     ]);
 
