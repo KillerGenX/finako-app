@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { AreaChart, BarChart, Calendar as CalendarIcon, Loader2 } from 'lucide-react';
+import { AreaChart, BarChart, Calendar as CalendarIcon, Loader2, Landmark } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
 import { id as indonesia } from 'date-fns/locale';
@@ -99,11 +99,12 @@ export function SalesReportClient({
             ) : (
                 <div className="space-y-6">
                     {/* Summary Cards */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                         <StatCard title="Pendapatan Bersih" value={formatCurrency(initialData.summary.net_revenue)} helpText="Setelah diskon" />
                         <StatCard title="Total HPP (Modal)" value={formatCurrency(initialData.summary.total_cogs)} />
                         <StatCard title="Laba Kotor" value={formatCurrency(initialData.summary.gross_profit)} />
                         <StatCard title="Margin Laba" value={`${initialData.summary.gross_margin.toFixed(2)}%`} />
+                        <StatCard title="Pajak Terkumpul" value={formatCurrency(initialData.summary.total_tax_collected)} helpText="Untuk disetor" />
                     </div>
 
                     {/* Top Products Table */}
