@@ -33,7 +33,7 @@ export function HistoryClient({
     const searchParams = useSearchParams();
     const [isPending, startTransition] = useTransition();
     const [viewingTransactionId, setViewingTransactionId] = useState<string | null>(null);
-    const [isPrinting, setIsPrinting] = useState(false); // <-- State baru untuk cetak
+    const [isPrinting, setIsPrinting] = useState(false);
 
     // State untuk filter
     const [date, setDate] = useState(searchParams.get('date') || format(new Date(), 'yyyy-MM-dd'));
@@ -51,17 +51,14 @@ export function HistoryClient({
         });
     };
     
-    // Fungsi baru untuk menangani logika cetak
     const handlePrint = () => {
         setIsPrinting(true);
     };
 
     useEffect(() => {
         if (isPrinting) {
-            // Beri waktu sejenak agar komponen cetak dirender sebelum dialog print muncul
             setTimeout(() => {
                 window.print();
-                // Set kembali ke false setelah dialog print selesai
                 setIsPrinting(false);
             }, 50);
         }
@@ -75,7 +72,6 @@ export function HistoryClient({
         <>
             {viewingTransactionId && <ViewReceiptModal transactionId={viewingTransactionId} onClose={() => setViewingTransactionId(null)} />}
             
-            {/* Tampilan Cetak hanya dirender saat isPrinting true */}
             {isPrinting && (
                 <div className="printable-area">
                     <PrintableClosingReport reportData={report} orgName="Nama Organisasi Anda" />
@@ -89,7 +85,7 @@ export function HistoryClient({
                         <p className="text-gray-500">Ringkasan transaksi untuk rekonsiliasi kasir.</p>
                     </div>
                     <button 
-                        onClick={handlePrint} // <-- Panggil fungsi baru
+                        onClick={handlePrint}
                         className="px-4 py-2 bg-teal-600 text-white rounded-lg flex items-center gap-2"
                     >
                         <Printer size={16} /> Cetak Laporan
@@ -149,18 +145,28 @@ export function HistoryClient({
                         {/* Daftar Transaksi Rinci */}
                         <div>
                             <h2 className="text-lg font-semibold mb-2">Daftar Transaksi</h2>
-                             <div className="border rounded-lg bg-white dark:bg-gray-800/50">
+                             <div className="border rounded-lg bg-white dark:bg-gray-800/50 overflow-x-auto">
                                 <table className="w-full text-sm">
-                                    <thead><tr className="border-b"><th className="p-3 text-left">Waktu</th><th className="p-3 text-left">No. Struk</th><th className="p-3 text-left">Kasir</th><th className="p-3 text-right">Total</th><th className="p-3 text-center">Aksi</th></tr></thead>
+                                    <thead>
+                                        <tr className="border-b">
+                                            <th className="p-3 text-left">Waktu</th>
+                                            <th className="p-3 text-left">No. Struk</th>
+                                            <th className="p-3 text-left">Kasir</th>
+                                            <th className="p-3 text-left">Metode Bayar</th>
+                                            <th className="p-3 text-right">Total</th>
+                                            <th className="p-3 text-center">Aksi</th>
+                                        </tr>
+                                    </thead>
                                     <tbody>
                                         {report.transactions.map(tx => (
-                                            <tr key={tx.id} className="border-b">
+                                            <tr key={tx.id} className="border-b last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-900/50">
                                                 <td className="p-3">{format(new Date(tx.transaction_date), 'HH:mm:ss')}</td>
                                                 <td className="p-3 font-mono">{tx.transaction_number}</td>
                                                 <td className="p-3">{tx.member_name}</td>
+                                                <td className="p-3 capitalize">{(tx.payment_methods || '').replace(/_/g, ' ').replace(/,/g, ', ')}</td>
                                                 <td className="p-3 text-right font-semibold">{formatCurrency(tx.grand_total)}</td>
                                                 <td className="p-3 text-center">
-                                                    <button onClick={() => setViewingTransactionId(tx.id)} className="text-gray-500 hover:text-teal-600">
+                                                    <button onClick={() => setViewingTransactionId(tx.id)} className="text-gray-500 hover:text-teal-600" title="Lihat Struk">
                                                         <Eye size={16} />
                                                     </button>
                                                 </td>

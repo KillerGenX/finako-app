@@ -2,10 +2,11 @@
 import { ClosingReportData } from './actions';
 import { format } from 'date-fns';
 import { id as indonesia } from 'date-fns/locale';
+import React from 'react';
 
 type PrintableProps = {
     reportData: ClosingReportData;
-    orgName: string; // Tambahkan nama organisasi
+    orgName: string;
 };
 
 export function PrintableClosingReport({ reportData, orgName }: PrintableProps) {
@@ -42,10 +43,10 @@ export function PrintableClosingReport({ reportData, orgName }: PrintableProps) 
                 <h3 className="font-bold text-lg mb-2 border-b">Rincian Metode Pembayaran</h3>
                 <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-sm">
                     {summary.payment_methods.map(pm => (
-                        <>
+                        <React.Fragment key={pm.payment_method}>
                             <span>Total {pm.payment_method.toUpperCase()}:</span>
                             <span className="text-right">{formatCurrency(pm.total_amount)}</span>
-                        </>
+                        </React.Fragment>
                     ))}
                 </div>
             </div>
@@ -69,13 +70,22 @@ export function PrintableClosingReport({ reportData, orgName }: PrintableProps) 
             <div className="mb-8">
                 <h3 className="font-bold text-lg mb-2 border-b">Daftar Transaksi</h3>
                 <table className="w-full text-sm text-left">
-                    <thead><tr><th className="font-semibold pb-1">Waktu</th><th className="font-semibold pb-1">No. Struk</th><th className="font-semibold pb-1">Kasir</th><th className="font-semibold pb-1 text-right">Total</th></tr></thead>
+                    <thead>
+                        <tr>
+                            <th className="font-semibold pb-1">Waktu</th>
+                            <th className="font-semibold pb-1">No. Struk</th>
+                            <th className="font-semibold pb-1">Kasir</th>
+                            <th className="font-semibold pb-1">Metode Bayar</th>
+                            <th className="font-semibold pb-1 text-right">Total</th>
+                        </tr>
+                    </thead>
                     <tbody>
                         {transactions.map(tx => (
                             <tr key={tx.id}>
                                 <td className="pt-1">{format(new Date(tx.transaction_date), 'HH:mm')}</td>
                                 <td>{tx.transaction_number}</td>
                                 <td>{tx.member_name}</td>
+                                <td className="capitalize">{(tx.payment_methods || '').replace(/_/g, ' ').replace(/,/g, ', ')}</td>
                                 <td className="text-right">{formatCurrency(tx.grand_total)}</td>
                             </tr>
                         ))}
