@@ -32,6 +32,7 @@ export type ClosingReportData = {
         transaction_count: number;
     }[];
     transactions: {
+        [x: string]: string;
         id: string; // <<-- TAMBAHKAN ID
         transaction_number: string;
         transaction_date: string;

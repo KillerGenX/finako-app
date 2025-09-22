@@ -98,12 +98,12 @@ export function PrintableClosingReport({ reportData, orgName }: PrintableProps) 
                 <div>
                     <p>Diserahkan oleh,</p>
                     <div className="mt-20 border-b"></div>
-                    <p className="mt-1">(Kasir)</p>
+                    <p className="mt-1">( <span className="inline-block border-b border-black w-33"></span> )</p>
                 </div>
                 <div>
-                    <p>Diverifikasi oleh,</p>
+                    <p>Diperiksa oleh,</p>
                     <div className="mt-20 border-b"></div>
-                    <p className="mt-1">(Manajer/Penyelia)</p>
+                    <p className="mt-1">( <span className="inline-block border-b border-black w-33"></span> )</p>
                 </div>
             </div>
              <div className="text-center text-xs text-gray-500 mt-12">
