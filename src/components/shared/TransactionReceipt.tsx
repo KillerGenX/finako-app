@@ -1,6 +1,8 @@
 "use client";
 
-// Tipe data ini harus cocok dengan output dari RPC get_transaction_details
+import { useMemo } from 'react';
+
+// Tipe data ini harus cocok dengan output dari RPC get_transaction_details v2
 type TransactionDetail = {
     transaction_number: string;
     transaction_date: string;
@@ -22,6 +24,7 @@ type TransactionDetail = {
     payments: {
         payment_method: string;
         amount: number;
+        tendered_amount: number | null; // Sekarang bisa menerima tendered_amount
     }[] | null;
 };
 
@@ -29,23 +32,21 @@ interface TransactionReceiptProps {
     details: TransactionDetail | null;
 }
 
-// Komponen "Dumb" untuk menampilkan struk
 export function TransactionReceipt({ details }: TransactionReceiptProps) {
 
-    const formatDate = (dateString: string) => {
-        return new Intl.DateTimeFormat('id-ID', {
-            dateStyle: 'long',
-            timeStyle: 'short',
-        }).format(new Date(dateString));
-    };
+    const formatDate = (dateString: string) => new Intl.DateTimeFormat('id-ID', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(dateString));
+    const formatCurrency = (amount: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
 
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('id-ID', {
-            style: 'currency',
-            currency: 'IDR',
-            minimumFractionDigits: 0,
-        }).format(amount);
-    };
+    const paymentSummary = useMemo(() => {
+        if (!details?.payments) {
+            return { totalReceived: 0, change: 0 };
+        }
+        // Total diterima adalah jumlah dari semua 'tendered_amount'
+        const totalReceived = details.payments.reduce((acc, p) => acc + (p.tendered_amount || p.amount), 0);
+        const change = totalReceived > details.grand_total ? totalReceived - details.grand_total : 0;
+        
+        return { totalReceived, change };
+    }, [details]);
 
     if (!details) {
         return <p className="text-center text-gray-500 p-4">Data transaksi tidak tersedia.</p>;
@@ -64,15 +65,11 @@ export function TransactionReceipt({ details }: TransactionReceiptProps) {
             {details.customer_name && <div className="flex justify-between"><span>Pelanggan:</span><span>{details.customer_name}</span></div>}
             <div className="border-t border-dashed my-2 border-gray-400"></div>
 
-            {/* Items */}
             <div>
                 {details.items?.map((item, index) => (
                     <div key={index} className="mb-1">
                         <p className="font-semibold">{item.product_name}</p>
-                        <div className="flex justify-between">
-                            <span>{item.quantity} x {formatCurrency(item.unit_price)}</span>
-                            <span>{formatCurrency(item.line_total)}</span>
-                        </div>
+                        <div className="flex justify-between"><span>{item.quantity} x {formatCurrency(item.unit_price)}</span><span>{formatCurrency(item.line_total)}</span></div>
                         {item.discount_amount > 0 && <p className="text-xs text-red-500">Diskon: -{formatCurrency(item.discount_amount)}</p>}
                     </div>
                 ))}
@@ -80,7 +77,6 @@ export function TransactionReceipt({ details }: TransactionReceiptProps) {
 
             <div className="border-t border-dashed my-2 border-gray-400"></div>
 
-            {/* Summary */}
             <div className="space-y-1">
                 <div className="flex justify-between"><span>Subtotal:</span><span>{formatCurrency(details.subtotal)}</span></div>
                 <div className="flex justify-between"><span>Diskon:</span><span>-{formatCurrency(details.total_discount)}</span></div>
@@ -91,20 +87,21 @@ export function TransactionReceipt({ details }: TransactionReceiptProps) {
             
             <div className="border-t border-dashed my-2 border-gray-400"></div>
 
-            {/* Payment */}
-            <div>
+            <div className="space-y-1">
                 {details.payments?.map((p, i) => (
-                    <div key={i} className="flex justify-between"><span>{p.payment_method.toUpperCase()}:</span><span>{formatCurrency(p.amount)}</span></div>
+                    <div key={i} className="flex justify-between">
+                        <span>{(p.payment_method || 'N/A').replace(/_/g, ' ').toUpperCase()}:</span>
+                        {/* Jika tendered > amount (ada kembalian), tampilkan. Jika tidak, cukup tampilkan amount. */}
+                        <span>{formatCurrency(p.tendered_amount && p.tendered_amount > p.amount ? p.tendered_amount : p.amount)}</span>
+                    </div>
                 ))}
+                
+                <div className="border-t my-1 border-gray-400"></div>
+                <div className="flex justify-between"><span>TOTAL BAYAR:</span><span>{formatCurrency(paymentSummary.totalReceived)}</span></div>
+                <div className="flex justify-between"><span>KEMBALIAN:</span><span>{formatCurrency(paymentSummary.change)}</span></div>
             </div>
 
-            {details.notes && (
-                <>
-                    <div className="border-t border-dashed my-2 border-gray-400"></div>
-                    <p className="text-xs text-center">Catatan: {details.notes}</p>
-                </>
-            )}
-
+            {details.notes && <p className="text-xs text-center pt-2 border-t border-dashed">Catatan: {details.notes}</p>}
             <div className="border-t border-dashed my-2 border-gray-400"></div>
             <p className="text-center text-xs mt-4">Terima kasih telah berbelanja!</p>
         </div>

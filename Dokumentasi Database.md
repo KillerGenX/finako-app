@@ -563,6 +563,17 @@ CREATE TABLE public.payments (
 );
 COMMENT ON TABLE public.payments IS 'Records payment methods used for a transaction.';
 
+ALTER TABLE public.payments
+ADD COLUMN IF NOT EXISTS tendered_amount NUMERIC(15, 2);
+
+COMMENT ON COLUMN public.payments.tendered_amount IS 'Jumlah uang yang sebenarnya diterima dari pelanggan (misal: uang tunai yang diberikan). Penting untuk menghitung kembalian.';
+
+-- Mengisi nilai default untuk data yang sudah ada agar tidak null
+UPDATE public.payments
+SET tendered_amount = amount
+WHERE tendered_amount IS NULL;
+
+
 
 -- ========== MODUL VI: AKUNTANSI ==========
 
