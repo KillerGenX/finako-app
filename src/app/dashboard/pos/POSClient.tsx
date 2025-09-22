@@ -7,14 +7,14 @@ import { createTransaction, getProductsForOutlet } from './actions';
 import { PaymentModal } from './PaymentModal';
 import { DiscountModal } from './DiscountModal';
 import { TransactionSuccessModal } from './TransactionSuccessModal';
-import { CustomerSelector } from './CustomerSelector'; // Import CustomerSelector
+import { CustomerSelector } from './CustomerSelector';
 
 // ========= TIPE DATA =========
 type Tax = { id: string; name: string; rate: number; is_inclusive: boolean; };
 type Product = { id: string; name: string; selling_price: number; image_url: string | null; track_stock: boolean; stock_on_hand: number; category_id: string | null; taxes: Tax[] | null; };
 type Outlet = { id: string; name: string; };
 type Category = { id: string; name: string; };
-type Customer = { id: string; name: string; phone_number?: string; }; // Tambahkan tipe Customer
+type Customer = { id: string; name: string; phone_number?: string; };
 
 type Discount = { type: 'percentage' | 'fixed'; value: number; };
 type CartItem = {
@@ -26,13 +26,20 @@ type CartItem = {
     discount: Discount;
 };
 
+// Tipe data untuk pembayaran yang akan dikirim ke server (SESUAI DENGAN ENUM)
+type PaymentData = {
+    payment_method: 'cash' | 'qris' | 'card_debit' | 'card_credit' | 'other';
+    amount: number;
+};
+
+
 // ========= KOMPONEN UTAMA =========
 export function POSClient({ outlets, categories, userName }: { outlets: Outlet[], categories: Category[], userName: string }) {
     // --- STATE MANAGEMENT ---
     const [products, setProducts] = useState<Product[]>([]);
     const [cart, setCart] = useState<CartItem[]>([]);
     const [transactionDiscount, setTransactionDiscount] = useState<Discount>({ type: 'fixed', value: 0 });
-    const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null); // State untuk pelanggan
+    const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
     // Filter & UI States
     const [selectedOutlet, setSelectedOutlet] = useState<string>(outlets[0]?.id || '');
@@ -75,7 +82,6 @@ export function POSClient({ outlets, categories, userName }: { outlets: Outlet[]
 
     // --- KALKULASI TOTAL KERANJANG ---
     const { subtotal, totalTax, grandTotal, totalDiscount } = useMemo(() => {
-        // ... (logika kalkulasi tidak berubah)
         let preDiscountSubtotal = 0;
         let finalTax = 0;
         let finalDiscount = 0;
@@ -154,9 +160,9 @@ export function POSClient({ outlets, categories, userName }: { outlets: Outlet[]
         }
     };
 
-    const handleConfirmPayment = async () => {
+    const handleConfirmPayment = async (payments: PaymentData[]) => {
         setIsCheckoutLoading(true);
-        // ... (logika mapping cartData tidak berubah)
+
         const cartData = cart.map(item => {
             let original_base_price = item.selling_price;
             if (item.taxes?.find(t => t.is_inclusive)) {
@@ -177,15 +183,24 @@ export function POSClient({ outlets, categories, userName }: { outlets: Outlet[]
             }
         });
         
-        let transactionDiscountAmount = transactionDiscount.type === 'fixed' ? transactionDiscount.value : (subtotal - totalDiscount + transactionDiscount.value) * (transactionDiscount.value / 100);
+        const subtotalAfterItemDiscounts = subtotal - (totalDiscount - transactionDiscount.value);
+        let transactionDiscountAmount = transactionDiscount.type === 'fixed' 
+            ? transactionDiscount.value 
+            : subtotalAfterItemDiscounts * (transactionDiscount.value / 100);
 
         try {
-            // Modifikasi: Kirim customerId ke createTransaction
-            const result = await createTransaction(cartData, selectedOutlet, transactionDiscountAmount, selectedCustomer?.id || null);
+            const result = await createTransaction(
+                cartData, 
+                selectedOutlet, 
+                transactionDiscountAmount, 
+                selectedCustomer?.id || null,
+                payments
+            );
+
              if (result.success && result.transaction_id) {
                 setCart([]);
                 setTransactionDiscount({ type: 'fixed', value: 0 });
-                setSelectedCustomer(null); // Reset pelanggan setelah transaksi berhasil
+                setSelectedCustomer(null);
                 setIsPaymentModalOpen(false);
                 setCompletedTransactionId(result.transaction_id);
             } else {
@@ -202,7 +217,12 @@ export function POSClient({ outlets, categories, userName }: { outlets: Outlet[]
     return (
         <>
             {/* --- MODALS --- */}
-            <PaymentModal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} onSubmit={handleConfirmPayment} grandTotal={grandTotal} />
+            <PaymentModal 
+                isOpen={isPaymentModalOpen} 
+                onClose={() => setIsPaymentModalOpen(false)} 
+                onSubmit={handleConfirmPayment}
+                grandTotal={grandTotal} 
+            />
             <DiscountModal isOpen={discountModalState.isOpen} onClose={() => setDiscountModalState({ isOpen: false })} onApply={handleApplyDiscount}
                 itemName={discountModalState.item?.name} basePrice={discountModalState.isTransactionDiscount ? subtotal : (discountModalState.item?.selling_price || 0) * (discountModalState.item?.quantity || 0) }
             />
@@ -216,7 +236,6 @@ export function POSClient({ outlets, categories, userName }: { outlets: Outlet[]
             <div className="flex flex-col md:flex-row h-[calc(100vh-100px)] gap-4 font-sans">
                 {/* Product Grid */}
                  <div className="flex-grow flex flex-col bg-white dark:bg-gray-800/50 rounded-lg border dark:border-gray-800 p-4">
-                     {/* ... (UI Filter dan Product List tidak berubah) */}
                       {/* Filters */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                          <select value={selectedOutlet} onChange={(e) => setSelectedOutlet(e.target.value)} className="w-full p-2 border rounded-md bg-transparent" disabled={outlets.length === 0}>
@@ -261,7 +280,6 @@ export function POSClient({ outlets, categories, userName }: { outlets: Outlet[]
                         {cart.length === 0 ? <div className="text-center text-gray-500 my-10"><ShoppingCart className="mx-auto h-12 w-12 text-gray-400"/><p>Keranjang masih kosong</p></div>
                         : cart.map(item => (
                             <div key={item.id} className="py-2">
-                                {/* ... (UI item keranjang tidak berubah) */}
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="font-semibold">{item.name}</p>
@@ -281,7 +299,6 @@ export function POSClient({ outlets, categories, userName }: { outlets: Outlet[]
                     </div>
                     {/* Cart Summary */}
                     <div className="mt-auto pt-4">
-                        {/* ... (UI ringkasan keranjang tidak berubah) */}
                         <div className="space-y-1 text-sm mb-4">
                             <div className="flex justify-between"><p>Subtotal</p><p>{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(subtotal)}</p></div>
                              <div className="flex justify-between items-center text-red-600">

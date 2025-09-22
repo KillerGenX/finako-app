@@ -14,6 +14,12 @@ type CartItemForDb = {
     discount_amount: number;
 };
 
+// Tipe data pembayaran yang diterima dari client-side (SESUAI DENGAN ENUM)
+type PaymentData = {
+    payment_method: 'cash' | 'qris' | 'card_debit' | 'card_credit' | 'other';
+    amount: number;
+};
+
 type Result = {
     success: boolean;
     message: string;
@@ -29,7 +35,6 @@ const QuickCustomerSchema = z.object({
 
 // ========= FUNGSI UNTUK MENGAMBIL DATA PRODUK POS =========
 export async function getProductsForOutlet(outletId: string) {
-    // ... (kode tidak berubah)
     if (!outletId) return [];
 
     const cookieStore = await cookies();
@@ -59,13 +64,13 @@ export async function getProductsForOutlet(outletId: string) {
 }
 
 
-// ========= FUNGSI UNTUK MEMBUAT TRANSAKSI =========
+// ========= FUNGSI UNTUK MEMBUAT TRANSAKSI (DIPERBARUI) =========
 export async function createTransaction(
-    // ... (kode tidak berubah)
     cartData: CartItemForDb[],
     outletId: string,
     totalDiscount: number,
-    customerId: string | null
+    customerId: string | null,
+    payments: PaymentData[] // Tipe sudah diperbarui
 ): Promise<Result> {
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -82,21 +87,27 @@ export async function createTransaction(
 
     if (cartData.length === 0) return { success: false, message: "Keranjang tidak boleh kosong." };
     if (!outletId) return { success: false, message: "Outlet harus dipilih." };
+    if (payments.length === 0) return { success: false, message: "Informasi pembayaran tidak boleh kosong." };
 
     try {
+        // Panggil RPC 'create_new_sale' yang sudah diperbarui dengan parameter p_payments
         const { data, error } = await supabase.rpc('create_new_sale', {
             p_organization_id: member.organization_id,
             p_outlet_id: outletId,
             p_member_id: member.id,
             p_cart_items: cartData,
             p_total_discount: totalDiscount,
-            p_customer_id: customerId
+            p_customer_id: customerId,
+            p_payments: payments
         });
 
         if (error) {
             console.error("RPC create_new_sale Error:", error);
             if (error.message.includes("Stok tidak mencukupi")) {
                 return { success: false, message: "Transaksi gagal: Stok tidak mencukupi untuk salah satu item." };
+            }
+             if (error.message.includes("tidak cocok dengan grand total")) {
+                return { success: false, message: "Transaksi gagal: Total pembayaran tidak sesuai dengan total tagihan." };
             }
             return { success: false, message: `Database error: ${error.message}` };
         }
@@ -117,7 +128,6 @@ export async function createTransaction(
 
 // ========= FUNGSI UNTUK MENGAMBIL DETAIL TRANSAKSI =========
 export async function getTransactionDetails(transactionId: string) {
-    // ... (kode tidak berubah)
     if (!transactionId) return null;
 
     const cookieStore = await cookies();
@@ -147,7 +157,6 @@ export async function getTransactionDetails(transactionId: string) {
 // ========= FUNGSI-FUNGSI UNTUK CRM (VERSI CEPAT) =========
 
 export async function searchCustomers(query: string) {
-    // ... (kode tidak berubah)
     if (!query) return [];
     
     const cookieStore = await cookies();
@@ -178,7 +187,6 @@ export async function searchCustomers(query: string) {
     return data;
 }
 
-// DIKEMBALIKAN: Fungsi createCustomer sekarang CEPAT (hanya nama & telepon)
 export async function createCustomer(formData: FormData) {
     const validatedFields = QuickCustomerSchema.safeParse({
         name: formData.get('name'),
