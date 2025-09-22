@@ -53,9 +53,11 @@ async function getFilterData(orgId: string) {
 
 
 export default async function HistoryPage({ searchParams }: {
-    searchParams: { date?: string, outletId?: string, cashierId?: string }
+    // Tipe searchParams sekarang adalah Promise
+    searchParams: Promise<{ date?: string, outletId?: string, cashierId?: string }>
 }) {
-    const { date, outletId, cashierId } = searchParams;
+    // Gunakan await untuk mengakses properti searchParams secara asinkron
+    const { date, outletId, cashierId } = await searchParams;
     const targetDate = date ? new Date(date) : new Date();
 
     const cookieStore = await cookies();
