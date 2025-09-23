@@ -44,7 +44,7 @@ export type ComprehensiveReportData = {
         total_spent: number;
     }[];
     hourly_sales_trend: {
-        hour: number;
+        hour: string; // Diubah menjadi string untuk konsistensi
         transaction_count: number;
     }[];
     transaction_history: {
@@ -133,7 +133,7 @@ export async function getOutletsForFilter() {
 }
 
 
-// --- Server Action untuk Ekspor Excel yang Diperbarui ---
+// --- Server Action untuk Ekspor Excel yang Diperbarui dan Diperbaiki ---
 export async function exportComprehensiveReportToExcel(
     startDate: Date, 
     endDate: Date,
@@ -153,10 +153,10 @@ export async function exportComprehensiveReportToExcel(
         // --- Style Definitions ---
         const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0D9488' } }; // Teal
         const headerFont: Partial<ExcelJS.Font> = { color: { argb: 'FFFFFFFF' }, bold: true };
-        const borderStyle: Partial<ExcelJS.Borders> = {
-            top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' }
-        };
+        const subHeaderFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } }; // Light Gray
+        const borderStyle: Partial<ExcelJS.Borders> = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
         const currencyFormat = '"Rp "#,##0;[Red]-"Rp "#,##0';
+        const numberFormat = '0';
 
         // --- Helper Function for Sheets ---
         const createSheet = (name: string, columns: Partial<ExcelJS.Column>[], data: any[]) => {
@@ -174,13 +174,11 @@ export async function exportComprehensiveReportToExcel(
                 }
             });
             sheet.views = [{ state: 'frozen', ySplit: 1 }];
-            sheet.autoFilter = {
-                from: { row: 1, column: 1 },
-                to: { row: 1, column: columns.length }
-            };
+            const lastColumn = String.fromCharCode(65 + columns.length - 1);
+            sheet.autoFilter = `A1:${lastColumn}1`;
             return sheet;
         };
-
+        
         // --- Sheet 1: Ringkasan ---
         const summarySheet = workbook.addWorksheet('Ringkasan');
         summarySheet.mergeCells('A1:B1');
@@ -190,55 +188,84 @@ export async function exportComprehensiveReportToExcel(
         summarySheet.getCell('B2').value = `${format(startDate, 'd MMM yyyy')} - ${format(endDate, 'd MMM yyyy')}`;
         summarySheet.getCell('A3').value = 'Outlet:';
         summarySheet.getCell('B3').value = outletName;
+        summarySheet.addRow([]); // Spacer
         const summaryData = [
-            ['Pendapatan Bersih', reportData.summary.net_revenue],
-            ['Laba Kotor', reportData.summary.gross_profit],
-            ['Total Pajak Terkumpul', reportData.summary.total_tax_collected],
-            ['Jumlah Transaksi', reportData.summary.transaction_count]
+            { label: 'Pendapatan Bersih', value: reportData.summary.net_revenue, format: currencyFormat },
+            { label: 'Laba Kotor', value: reportData.summary.gross_profit, format: currencyFormat },
+            { label: 'Total Pajak Terkumpul', value: reportData.summary.total_tax_collected, format: currencyFormat },
+            { label: 'Jumlah Transaksi', value: reportData.summary.transaction_count, format: numberFormat }
         ];
-        summarySheet.addRows(summaryData);
+        summaryData.forEach(item => {
+            const row = summarySheet.addRow([item.label, item.value]);
+            row.getCell(1).font = { bold: true };
+            row.getCell(2).numFmt = item.format;
+        });
         summarySheet.getColumn('A').width = 25;
         summarySheet.getColumn('B').width = 20;
-        summarySheet.getColumn('B').numFmt = currencyFormat;
-
-        // --- Sheet 2: Riwayat Transaksi ---
-        createSheet('Riwayat Transaksi', [
-            { header: 'No. Transaksi', key: 'transaction_number', width: 25 },
-            { header: 'Tanggal', key: 'transaction_date', width: 25 },
-            { header: 'Kasir', key: 'cashier_name', width: 25 },
-            { header: 'Pelanggan', key: 'customer_name', width: 25 },
-            { header: 'Total', key: 'grand_total', width: 20, style: { numFmt: currencyFormat } },
-        ], reportData.transaction_history.map(t => ({...t, transaction_date: new Date(t.transaction_date)})) );
-
+        
+        // --- Sheet 2: Riwayat Transaksi (Diperbarui) ---
+        const txSheet = workbook.addWorksheet('Detail Riwayat Transaksi');
+        txSheet.columns = [
+            { header: 'Item', key: 'colA', width: 30 }, { header: 'Varian', key: 'colB', width: 20 }, { header: 'Qty', key: 'colC', width: 10 },
+            { header: 'Harga Satuan', key: 'colD', width: 20, style: { numFmt: currencyFormat } }, { header: 'Diskon', key: 'colE', width: 20, style: { numFmt: currencyFormat } },
+            { header: 'Pajak', key: 'colF', width: 20, style: { numFmt: currencyFormat } }, { header: 'Subtotal', key: 'colG', width: 20, style: { numFmt: currencyFormat } }
+        ];
+        txSheet.getRow(1).eachCell(cell => { cell.fill = subHeaderFill }); // Sub-header style
+        
+        reportData.transaction_history.forEach(tx => {
+            txSheet.addRow([]); // Spacer row
+            const mainRow = txSheet.addRow([tx.transaction_number, format(new Date(tx.transaction_date), 'd MMM yyyy, HH:mm'), tx.cashier_name, tx.customer_name || 'Umum', '', '', tx.grand_total]);
+            mainRow.font = { bold: true };
+            txSheet.mergeCells(mainRow.number, 1, mainRow.number, 2);
+            txSheet.mergeCells(mainRow.number, 3, mainRow.number, 4);
+            
+            tx.items.forEach(item => {
+                txSheet.addRow([item.product_name, item.variant_name, item.quantity, item.unit_price, item.discount_amount, item.tax_amount, item.line_total]);
+            });
+        });
+        
         // --- Sheet 3: Top Produk ---
         createSheet('Produk Terlaris', [
-            { header: 'Produk', key: 'template_name', width: 30 },
-            { header: 'Varian', key: 'product_name', width: 30 },
-            { header: 'Unit Terjual', key: 'total_quantity_sold', width: 15 },
-            { header: 'Pendapatan Bersih', key: 'net_revenue', width: 20, style: { numFmt: currencyFormat } },
+            { header: 'Produk', key: 'template_name', width: 30 }, { header: 'Varian', key: 'product_name', width: 30 },
+            { header: 'Unit Terjual', key: 'total_quantity_sold', width: 15 }, { header: 'Pendapatan Bersih', key: 'net_revenue', width: 20, style: { numFmt: currencyFormat } },
             { header: 'Laba Kotor', key: 'gross_profit', width: 20, style: { numFmt: currencyFormat } },
         ], reportData.top_products);
 
-        // --- Sheet 4: Kinerja Kasir ---
-         createSheet('Kinerja Kasir', [
-            { header: 'Nama Kasir', key: 'cashier_name', width: 30 },
-            { header: 'Jumlah Transaksi', key: 'transaction_count', width: 20 },
-            { header: 'Total Penjualan', key: 'net_revenue', width: 25, style: { numFmt: currencyFormat } },
-            { header: 'Rata-rata/Transaksi', key: 'avg_transaction_value', width: 25, style: { numFmt: currencyFormat } },
-        ], reportData.cashier_performance);
+        // --- Sheet 4: Kinerja & Lainnya (Diperbaiki) ---
+        const analysisSheet = workbook.addWorksheet('Analisis Lainnya');
+        
+        // Kinerja Kasir
+        analysisSheet.addRow(['Kinerja Kasir']).font = { bold: true, size: 14 };
+        analysisSheet.addRow(['Nama Kasir', 'Jumlah Transaksi', 'Total Penjualan', 'Rata-rata/Transaksi']).font = { bold: true };
+        reportData.cashier_performance.forEach(c => {
+            const row = analysisSheet.addRow([c.cashier_name, c.transaction_count, c.net_revenue, c.avg_transaction_value]);
+            row.getCell(3).numFmt = currencyFormat;
+            row.getCell(4).numFmt = currencyFormat;
+        });
+        
+        analysisSheet.addRow([]); // Spacer
+        
+        // Pelanggan Teratas
+        analysisSheet.addRow(['Pelanggan Teratas']).font = { bold: true, size: 14 };
+        analysisSheet.addRow(['Nama Pelanggan', 'Jumlah Transaksi', 'Total Belanja']).font = { bold: true };
+        reportData.top_customers.forEach(c => {
+            const row = analysisSheet.addRow([c.customer_name, c.transaction_count, c.total_spent]);
+            row.getCell(3).numFmt = currencyFormat;
+        });
+        
+        analysisSheet.addRow([]); // Spacer
 
-        // --- Sheet 5: Kategori & Pelanggan ---
-        const catCustSheet = workbook.addWorksheet('Kategori & Pelanggan');
-        catCustSheet.addRows([{col1: 'Performa Kategori'}]);
-        catCustSheet.getRow(1).font = { bold: true };
-        catCustSheet.addRows(reportData.category_performance.map(c => ({col1: c.category_name, col2: c.net_revenue})));
-        catCustSheet.getColumn('A').width = 30;
-        catCustSheet.getColumn('B').width = 20;
-        catCustSheet.getColumn('B').numFmt = currencyFormat;
-        catCustSheet.addRows([{col1: ''}]); // Spacer
-        catCustSheet.addRows([{col1: 'Pelanggan Teratas'}]);
-        catCustSheet.getRow(reportData.category_performance.length + 3).font = { bold: true };
-        catCustSheet.addRows(reportData.top_customers.map(c => ({col1: c.customer_name, col2: c.total_spent})));
+        // Kategori
+        analysisSheet.addRow(['Performa Kategori']).font = { bold: true, size: 14 };
+        analysisSheet.addRow(['Nama Kategori', 'Total Pendapatan']).font = { bold: true };
+        reportData.category_performance.forEach(c => {
+            const row = analysisSheet.addRow([c.category_name, c.net_revenue]);
+            row.getCell(2).numFmt = currencyFormat;
+        });
+        
+        // Atur lebar kolom
+        analysisSheet.columns.forEach(column => { column.width = 30; });
+
 
         const buffer = await workbook.xlsx.writeBuffer();
         const base64 = Buffer.from(buffer).toString('base64');
