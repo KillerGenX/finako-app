@@ -1,6 +1,6 @@
 // src/app/dashboard/reports/sales/page.tsx
 import { SalesReportClient } from './SalesReportClient';
-import { getSalesAndProfitReport, getOutletsForFilter } from './actions';
+import { getComprehensiveSalesAnalysis, getOutletsForFilter } from './actions';
 import { subDays, startOfDay, endOfDay } from 'date-fns';
 
 export default async function SalesReportPage({ 
@@ -8,8 +8,9 @@ export default async function SalesReportPage({
 }: { 
     searchParams: { from?: string; to?: string; outletId?: string } 
 }) {
-    // PERBAIKAN FINAL DAN BENAR: Await searchParams untuk mendapatkan nilainya
-    const { from, to, outletId } = await searchParams;
+    const from = searchParams.from;
+    const to = searchParams.to;
+    const outletId = searchParams.outletId;
 
     // Tentukan rentang tanggal default (7 hari terakhir)
     const toDate = to ? new Date(to) : new Date();
@@ -24,7 +25,7 @@ export default async function SalesReportPage({
 
     // Panggil kedua server action secara bersamaan untuk efisiensi
     const [initialReportData, outlets] = await Promise.all([
-        getSalesAndProfitReport(startDate, endDate, finalOutletId),
+        getComprehensiveSalesAnalysis(startDate, endDate, finalOutletId),
         getOutletsForFilter()
     ]);
 
