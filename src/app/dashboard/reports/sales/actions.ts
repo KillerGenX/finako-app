@@ -120,7 +120,7 @@ export async function getOutletsForFilter() {
     }
 }
 
-// --- Server Action untuk Ekspor Excel (Penyempurnaan Terakhir) ---
+// --- Server Action untuk Ekspor Excel (Versi Final dengan Border) ---
 export async function exportComprehensiveReportToExcel(
     startDate: Date, 
     endDate: Date,
@@ -175,11 +175,13 @@ export async function exportComprehensiveReportToExcel(
             txSheet.addRow([]);
             const startRowNum = (txSheet.lastRow?.number || 0) + 1;
 
+            const customerInfo = `Pelanggan: ${tx.customer_name || 'Umum'} (Metode Bayar: ${tx.payment_methods || 'Lainnya'})`;
+
             const mainRow = txSheet.addRow([
                 `${txCounter}.`,
                 `${tx.transaction_number} (${tx.cashier_name})`, null,
                 format(new Date(tx.transaction_date), 'd MMM yyyy, HH:mm'), null,
-                `Pelanggan: ${tx.customer_name || 'Umum'}`, null,
+                customerInfo, null,
                 tx.grand_total
             ]);
             mainRow.font = { bold: true };
@@ -232,7 +234,7 @@ export async function exportComprehensiveReportToExcel(
         const analysisSheet = workbook.addWorksheet('Analisis Lainnya');
         let currentRow = 1;
         const addSection = (title: string, headers: string[], data: (string | number)[][], formatters?: ((row: ExcelJS.Row) => void)) => {
-            if(data.length === 0) return; // Jangan buat section jika tidak ada data
+            if(data.length === 0) return;
             analysisSheet.getCell(currentRow, 1).value = title;
             analysisSheet.getCell(currentRow, 1).font = { bold: true, size: 14 };
             currentRow++;
