@@ -27,6 +27,7 @@ type TransactionHistoryEntry = {
     customer_name: string | null;
     grand_total: number;
     status: string;
+    payment_methods: string | null;
     items: TransactionItemDetails[];
 };
 
@@ -84,7 +85,8 @@ const TransactionDetailModal = ({ transaction, onClose }: { transaction: Transac
                    <div className="flex justify-between"><span>Subtotal:</span> <span>{formatCurrency(transaction.items.reduce((acc: number, i: TransactionItemDetails) => acc + i.line_total, 0))}</span></div>
                     <div className="flex justify-between"><span>Pajak:</span> <span>{formatCurrency(transaction.items.reduce((acc: number, i: TransactionItemDetails) => acc + i.tax_amount, 0))}</span></div>
                     <div className="flex justify-between"><span>Diskon:</span> <span className="text-red-500">{formatCurrency(transaction.items.reduce((acc: number, i: TransactionItemDetails) => acc + i.discount_amount, 0))}</span></div>
-                    <div className="flex justify-between text-base font-bold mt-2"><span>Grand Total:</span> <span>{formatCurrency(transaction.grand_total)}</span></div>
+                    <div className="flex justify-between font-semibold mt-2"><span>Dibayar dengan:</span> <span className="uppercase">{transaction.payment_methods || 'N/A'}</span></div>
+                    <div className="flex justify-between text-base font-bold mt-1"><span>Grand Total:</span> <span>{formatCurrency(transaction.grand_total)}</span></div>
                 </div>
             </div>
         </div>

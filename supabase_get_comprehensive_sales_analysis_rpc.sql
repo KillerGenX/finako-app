@@ -1,4 +1,4 @@
--- comprehensive_sales_analysis_function.sql
+-- comprehensive_sales_analysis_function.sql (Final Update)
 
 -- Drop the function if it already exists to ensure a clean setup
 DROP FUNCTION IF EXISTS get_comprehensive_sales_analysis(UUID, TIMESTAMPTZ, TIMESTAMPTZ, UUID);
@@ -143,10 +143,10 @@ BEGIN
             ) cust
         ),
         'hourly_sales_trend', (
-            SELECT COALESCE(jsonb_agg(hourly.* ORDER BY hourly.hour), '[]'::jsonb)
+            SELECT COALESCE(jsonb_agg(hourly.* ORDER BY (hourly.hour::integer)), '[]'::jsonb)
             FROM (
                  SELECT 
-                    EXTRACT(HOUR FROM transaction_date) AS hour,
+                    EXTRACT(HOUR FROM transaction_date)::text AS hour,
                     COUNT(*) AS transaction_count
                  FROM TimeFilteredTransactions
                  GROUP BY EXTRACT(HOUR FROM transaction_date)
@@ -163,6 +163,11 @@ BEGIN
                     cust.name AS customer_name,
                     tft.grand_total,
                     tft.status,
+                    (
+                        SELECT string_agg(DISTINCT p.payment_method::text, ', ') 
+                        FROM payments p 
+                        WHERE p.transaction_id = tft.id
+                    ) as payment_methods, -- INI ADALAH TAMBAHAN BARU
                     (
                         SELECT COALESCE(jsonb_agg(items.*), '[]'::jsonb)
                         FROM (

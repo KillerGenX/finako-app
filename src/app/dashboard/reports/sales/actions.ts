@@ -55,6 +55,7 @@ export type ComprehensiveReportData = {
         customer_name: string | null;
         grand_total: number;
         status: string;
+        payment_methods: string | null; // Penambahan baru
         items: {
             product_name: string;
             variant_name: string;
@@ -119,7 +120,7 @@ export async function getOutletsForFilter() {
     }
 }
 
-// --- Server Action untuk Ekspor Excel (Versi Final dengan Border) ---
+// --- Server Action untuk Ekspor Excel (Penyempurnaan Terakhir) ---
 export async function exportComprehensiveReportToExcel(
     startDate: Date, 
     endDate: Date,
@@ -165,13 +166,13 @@ export async function exportComprehensiveReportToExcel(
         summarySheet.getColumn('A').width = 25;
         summarySheet.getColumn('B').width = 20;
 
-        // --- Sheet 2: Detail Riwayat Transaksi (Implementasi Border Baru) ---
+        // --- Sheet 2: Detail Riwayat Transaksi ---
         const txSheet = workbook.addWorksheet('Detail Riwayat Transaksi');
         txSheet.columns = [ { width: 5 }, { width: 30 }, { width: 10 }, { width: 20 }, { width: 15 }, { width: 15 }, { width: 20 }, { width: 20 } ];
 
         let txCounter = 1;
         reportData.transaction_history.forEach(tx => {
-            txSheet.addRow([]); 
+            txSheet.addRow([]);
             const startRowNum = (txSheet.lastRow?.number || 0) + 1;
 
             const mainRow = txSheet.addRow([
@@ -231,6 +232,7 @@ export async function exportComprehensiveReportToExcel(
         const analysisSheet = workbook.addWorksheet('Analisis Lainnya');
         let currentRow = 1;
         const addSection = (title: string, headers: string[], data: (string | number)[][], formatters?: ((row: ExcelJS.Row) => void)) => {
+            if(data.length === 0) return; // Jangan buat section jika tidak ada data
             analysisSheet.getCell(currentRow, 1).value = title;
             analysisSheet.getCell(currentRow, 1).font = { bold: true, size: 14 };
             currentRow++;
@@ -245,6 +247,7 @@ export async function exportComprehensiveReportToExcel(
             });
             currentRow++;
         };
+
         addSection('Kinerja Kasir', ['Nama Kasir', 'Jumlah Transaksi', 'Total Penjualan'], 
             reportData.cashier_performance.map(c => [c.cashier_name, c.transaction_count, c.net_revenue]),
             (row) => { row.getCell(3).numFmt = currencyFormat; }
@@ -257,6 +260,11 @@ export async function exportComprehensiveReportToExcel(
             reportData.category_performance.map(c => [c.category_name, c.net_revenue]),
             (row) => { row.getCell(2).numFmt = currencyFormat; }
         );
+        addSection('Metode Pembayaran', ['Metode', 'Total Diterima'],
+            reportData.payment_method_summary.map(p => [p.payment_method, p.total_amount]),
+            (row) => { row.getCell(2).numFmt = currencyFormat; }
+        );
+        
         analysisSheet.columns.forEach(column => { if(column) column.width = 30; });
 
 
