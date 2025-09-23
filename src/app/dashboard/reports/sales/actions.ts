@@ -44,7 +44,7 @@ export type ComprehensiveReportData = {
         total_spent: number;
     }[];
     hourly_sales_trend: {
-        hour: string; // Diubah menjadi string untuk konsistensi
+        hour: string;
         transaction_count: number;
     }[];
     transaction_history: {
@@ -85,7 +85,6 @@ async function getSupabaseAndOrgId() {
     return { supabase, organization_id: member.organization_id };
 }
 
-// --- Server Action Baru untuk Laporan Komprehensif ---
 export async function getComprehensiveSalesAnalysis(
     startDate: Date, 
     endDate: Date,
@@ -93,21 +92,14 @@ export async function getComprehensiveSalesAnalysis(
 ): Promise<ComprehensiveReportData> {
     try {
         const { supabase, organization_id } = await getSupabaseAndOrgId();
-        
         const { data, error } = await supabase.rpc('get_comprehensive_sales_analysis', {
             p_organization_id: organization_id,
             p_start_date: startDate.toISOString(),
             p_end_date: endDate.toISOString(),
             p_outlet_id: outletId
         });
-
-        if (error) {
-            console.error("Supabase RPC Error:", error);
-            throw new Error(error.message);
-        }
-        
+        if (error) throw new Error(error.message);
         return data;
-
     } catch (e: any) {
         console.error("Error fetching comprehensive sales report:", e.message);
         return null;
@@ -118,22 +110,16 @@ export async function getComprehensiveSalesAnalysis(
 export async function getOutletsForFilter() {
     try {
         const { supabase, organization_id } = await getSupabaseAndOrgId();
-        const { data, error } = await supabase
-            .from('outlets')
-            .select('id, name')
-            .eq('organization_id', organization_id)
-            .order('name');
-        
+        const { data, error } = await supabase.from('outlets').select('id, name').eq('organization_id', organization_id).order('name');
         if (error) throw new Error(error.message);
-        return data;
+        return [];
     } catch (e: any) {
         console.error("Error fetching outlets:", e.message);
         return [];
     }
 }
 
-
-// --- Server Action untuk Ekspor Excel yang Diperbarui dan Diperbaiki ---
+// --- Server Action untuk Ekspor Excel (Versi Lengkap dan Final) ---
 export async function exportComprehensiveReportToExcel(
     startDate: Date, 
     endDate: Date,
@@ -150,35 +136,9 @@ export async function exportComprehensiveReportToExcel(
         workbook.creator = 'Finako App';
         workbook.created = new Date();
 
-        // --- Style Definitions ---
-        const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0D9488' } }; // Teal
-        const headerFont: Partial<ExcelJS.Font> = { color: { argb: 'FFFFFFFF' }, bold: true };
-        const subHeaderFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } }; // Light Gray
-        const borderStyle: Partial<ExcelJS.Borders> = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
         const currencyFormat = '"Rp "#,##0;[Red]-"Rp "#,##0';
-        const numberFormat = '0';
+        const numberFormat = '#,##0';
 
-        // --- Helper Function for Sheets ---
-        const createSheet = (name: string, columns: Partial<ExcelJS.Column>[], data: any[]) => {
-            const sheet = workbook.addWorksheet(name);
-            sheet.columns = columns;
-            sheet.getRow(1).eachCell(cell => {
-                cell.fill = headerFill;
-                cell.font = headerFont;
-                cell.border = borderStyle;
-            });
-            sheet.addRows(data);
-             sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-                if (rowNumber > 1) { 
-                    row.eachCell(cell => { cell.border = borderStyle; });
-                }
-            });
-            sheet.views = [{ state: 'frozen', ySplit: 1 }];
-            const lastColumn = String.fromCharCode(65 + columns.length - 1);
-            sheet.autoFilter = `A1:${lastColumn}1`;
-            return sheet;
-        };
-        
         // --- Sheet 1: Ringkasan ---
         const summarySheet = workbook.addWorksheet('Ringkasan');
         summarySheet.mergeCells('A1:B1');
@@ -202,69 +162,86 @@ export async function exportComprehensiveReportToExcel(
         });
         summarySheet.getColumn('A').width = 25;
         summarySheet.getColumn('B').width = 20;
-        
-        // --- Sheet 2: Riwayat Transaksi (Diperbarui) ---
+
+        // --- Sheet 2: Detail Riwayat Transaksi ---
         const txSheet = workbook.addWorksheet('Detail Riwayat Transaksi');
-        txSheet.columns = [
-            { header: 'Item', key: 'colA', width: 30 }, { header: 'Varian', key: 'colB', width: 20 }, { header: 'Qty', key: 'colC', width: 10 },
-            { header: 'Harga Satuan', key: 'colD', width: 20, style: { numFmt: currencyFormat } }, { header: 'Diskon', key: 'colE', width: 20, style: { numFmt: currencyFormat } },
-            { header: 'Pajak', key: 'colF', width: 20, style: { numFmt: currencyFormat } }, { header: 'Subtotal', key: 'colG', width: 20, style: { numFmt: currencyFormat } }
-        ];
-        txSheet.getRow(1).eachCell(cell => { cell.fill = subHeaderFill }); // Sub-header style
-        
+        txSheet.columns = [ { width: 30 }, { width: 10 }, { width: 20 }, { width: 15 }, { width: 15 }, { width: 20 }, { width: 20 } ];
         reportData.transaction_history.forEach(tx => {
-            txSheet.addRow([]); // Spacer row
-            const mainRow = txSheet.addRow([tx.transaction_number, format(new Date(tx.transaction_date), 'd MMM yyyy, HH:mm'), tx.cashier_name, tx.customer_name || 'Umum', '', '', tx.grand_total]);
+            txSheet.addRow([]);
+            const mainRow = txSheet.addRow([ `${tx.transaction_number} (${tx.cashier_name})`, null, null, format(new Date(tx.transaction_date), 'd MMM yyyy, HH:mm'), null, `Pelanggan: ${tx.customer_name || 'Umum'}`, tx.grand_total ]);
             mainRow.font = { bold: true };
-            txSheet.mergeCells(mainRow.number, 1, mainRow.number, 2);
-            txSheet.mergeCells(mainRow.number, 3, mainRow.number, 4);
+            mainRow.getCell(7).numFmt = currencyFormat;
+            txSheet.mergeCells(`A${mainRow.number}:C${mainRow.number}`);
+            txSheet.mergeCells(`D${mainRow.number}:E${mainRow.number}`);
+            const subHeaderRow = txSheet.addRow([ 'Nama Item', 'Qty', 'Harga Satuan', 'Diskon', 'Pajak', 'Subtotal' ]);
+            subHeaderRow.font = { italic: true, color: { argb: 'FF6c757d'} };
             
+            let totalDiscount = 0;
+            let totalTax = 0;
             tx.items.forEach(item => {
-                txSheet.addRow([item.product_name, item.variant_name, item.quantity, item.unit_price, item.discount_amount, item.tax_amount, item.line_total]);
+                totalDiscount += item.discount_amount;
+                totalTax += item.tax_amount;
+                const itemRow = txSheet.addRow([ item.variant_name, item.quantity, item.unit_price, item.discount_amount, item.tax_amount, item.line_total ]);
+                itemRow.getCell(3).numFmt = currencyFormat;
+                itemRow.getCell(4).numFmt = currencyFormat;
+                itemRow.getCell(5).numFmt = currencyFormat;
+                itemRow.getCell(6).numFmt = currencyFormat;
             });
+            
+            if (totalDiscount > 0) {
+                const summaryRow = txSheet.addRow([ null, null, null, null, 'Total Diskon:', totalDiscount ]);
+                summaryRow.getCell(6).numFmt = currencyFormat;
+            }
+            if (totalTax > 0) {
+                const taxRow = txSheet.addRow([ null, null, null, null, 'Total Pajak:', totalTax ]);
+                taxRow.getCell(6).numFmt = currencyFormat;
+            }
         });
         
-        // --- Sheet 3: Top Produk ---
-        createSheet('Produk Terlaris', [
+        // --- Sheet 3: Produk Terlaris (Dikembalikan) ---
+        const productsSheet = workbook.addWorksheet('Produk Terlaris');
+        productsSheet.columns = [
             { header: 'Produk', key: 'template_name', width: 30 }, { header: 'Varian', key: 'product_name', width: 30 },
             { header: 'Unit Terjual', key: 'total_quantity_sold', width: 15 }, { header: 'Pendapatan Bersih', key: 'net_revenue', width: 20, style: { numFmt: currencyFormat } },
             { header: 'Laba Kotor', key: 'gross_profit', width: 20, style: { numFmt: currencyFormat } },
-        ], reportData.top_products);
+        ];
+        productsSheet.addRows(reportData.top_products);
 
-        // --- Sheet 4: Kinerja & Lainnya (Diperbaiki) ---
+        // --- Sheet 4: Analisis Lainnya ---
         const analysisSheet = workbook.addWorksheet('Analisis Lainnya');
+        let currentRow = 1;
         
-        // Kinerja Kasir
-        analysisSheet.addRow(['Kinerja Kasir']).font = { bold: true, size: 14 };
-        analysisSheet.addRow(['Nama Kasir', 'Jumlah Transaksi', 'Total Penjualan', 'Rata-rata/Transaksi']).font = { bold: true };
-        reportData.cashier_performance.forEach(c => {
-            const row = analysisSheet.addRow([c.cashier_name, c.transaction_count, c.net_revenue, c.avg_transaction_value]);
-            row.getCell(3).numFmt = currencyFormat;
-            row.getCell(4).numFmt = currencyFormat;
-        });
-        
-        analysisSheet.addRow([]); // Spacer
-        
-        // Pelanggan Teratas
-        analysisSheet.addRow(['Pelanggan Teratas']).font = { bold: true, size: 14 };
-        analysisSheet.addRow(['Nama Pelanggan', 'Jumlah Transaksi', 'Total Belanja']).font = { bold: true };
-        reportData.top_customers.forEach(c => {
-            const row = analysisSheet.addRow([c.customer_name, c.transaction_count, c.total_spent]);
-            row.getCell(3).numFmt = currencyFormat;
-        });
-        
-        analysisSheet.addRow([]); // Spacer
+        const addSection = (title: string, headers: string[], data: (string | number)[][], formatters?: ((row: ExcelJS.Row) => void)) => {
+            analysisSheet.getCell(currentRow, 1).value = title;
+            analysisSheet.getCell(currentRow, 1).font = { bold: true, size: 14 };
+            currentRow++;
+            const headerRow = analysisSheet.getRow(currentRow);
+            headers.forEach((h, i) => headerRow.getCell(i + 1).value = h);
+            headerRow.font = { bold: true };
+            currentRow++;
+            data.forEach(item => {
+                const dataRow = analysisSheet.addRow(item);
+                if (formatters) formatters(dataRow);
+                currentRow = dataRow.number + 1;
+            });
+            currentRow++;
+        };
 
-        // Kategori
-        analysisSheet.addRow(['Performa Kategori']).font = { bold: true, size: 14 };
-        analysisSheet.addRow(['Nama Kategori', 'Total Pendapatan']).font = { bold: true };
-        reportData.category_performance.forEach(c => {
-            const row = analysisSheet.addRow([c.category_name, c.net_revenue]);
-            row.getCell(2).numFmt = currencyFormat;
-        });
+        addSection('Kinerja Kasir', ['Nama Kasir', 'Jumlah Transaksi', 'Total Penjualan'], 
+            reportData.cashier_performance.map(c => [c.cashier_name, c.transaction_count, c.net_revenue]),
+            (row) => { row.getCell(3).numFmt = currencyFormat; }
+        );
+        addSection('Pelanggan Teratas', ['Nama Pelanggan', 'Jumlah Transaksi', 'Total Belanja'], 
+            reportData.top_customers.map(c => [c.customer_name, c.transaction_count, c.total_spent]),
+            (row) => { row.getCell(3).numFmt = currencyFormat; }
+        );
+        // Perbaikan di sini: mapping data kategori secara eksplisit
+        addSection('Performa Kategori', ['Nama Kategori', 'Total Pendapatan'], 
+            reportData.category_performance.map(c => [c.category_name, c.net_revenue]),
+            (row) => { row.getCell(2).numFmt = currencyFormat; }
+        );
         
-        // Atur lebar kolom
-        analysisSheet.columns.forEach(column => { column.width = 30; });
+        analysisSheet.columns.forEach(column => { if(column) column.width = 30; });
 
 
         const buffer = await workbook.xlsx.writeBuffer();
