@@ -8,9 +8,31 @@ import { id as indonesia } from 'date-fns/locale';
 import { ComprehensiveReportData, exportComprehensiveReportToExcel } from './actions';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 
-// --- Tipe Data ---
+// --- Definisi Tipe Data yang Diperbaiki ---
 type Outlet = { id: string; name: string };
-type TransactionHistoryItem = ComprehensiveReportData extends { transaction_history: (infer U)[] } ? U : never;
+
+// Definisikan tipe untuk satu item dalam transaksi secara eksplisit
+type TransactionItemDetails = {
+    product_name: string;
+    variant_name: string;
+    quantity: number;
+    unit_price: number;
+    discount_amount: number;
+    tax_amount: number;
+    line_total: number;
+};
+
+// Definisikan tipe untuk satu entri riwayat transaksi
+type TransactionHistoryEntry = {
+    id: string;
+    transaction_number: string;
+    transaction_date: string;
+    cashier_name: string;
+    customer_name: string | null;
+    grand_total: number;
+    status: string;
+    items: TransactionItemDetails[];
+};
 
 // --- Helper & Util ---
 const formatCurrency = (value: number | null | undefined) => {
@@ -39,7 +61,7 @@ const TabButton = ({ active, onClick, children }: { active: boolean, onClick: ()
     </button>
 );
 
-const TransactionDetailModal = ({ transaction, onClose }: { transaction: TransactionHistoryItem | null, onClose: () => void }) => {
+const TransactionDetailModal = ({ transaction, onClose }: { transaction: TransactionHistoryEntry | null, onClose: () => void }) => {
     if (!transaction) return null;
     
     return (
@@ -68,7 +90,7 @@ const TransactionDetailModal = ({ transaction, onClose }: { transaction: Transac
                             </tr>
                         </thead>
                         <tbody>
-                            {transaction.items.map((item, index) => (
+                            {transaction.items.map((item: TransactionItemDetails, index: number) => (
                                 <tr key={index} className="border-b last:border-b-0">
                                     <td className="p-2">{item.variant_name}</td>
                                     <td className="p-2 text-right">{item.quantity}</td>
@@ -80,9 +102,9 @@ const TransactionDetailModal = ({ transaction, onClose }: { transaction: Transac
                     </table>
                 </div>
                 <div className="border-t pt-4 space-y-1 text-right text-sm">
-                   <div className="flex justify-between"><span>Subtotal:</span> <span>{formatCurrency(transaction.items.reduce((acc, i) => acc + i.line_total, 0))}</span></div>
-                    <div className="flex justify-between"><span>Pajak:</span> <span>{formatCurrency(transaction.items.reduce((acc, i) => acc + i.tax_amount, 0))}</span></div>
-                    <div className="flex justify-between"><span>Diskon:</span> <span className="text-red-500">{formatCurrency(transaction.items.reduce((acc, i) => acc + i.discount_amount, 0))}</span></div>
+                   <div className="flex justify-between"><span>Subtotal:</span> <span>{formatCurrency(transaction.items.reduce((acc: number, i: TransactionItemDetails) => acc + i.line_total, 0))}</span></div>
+                    <div className="flex justify-between"><span>Pajak:</span> <span>{formatCurrency(transaction.items.reduce((acc: number, i: TransactionItemDetails) => acc + i.tax_amount, 0))}</span></div>
+                    <div className="flex justify-between"><span>Diskon:</span> <span className="text-red-500">{formatCurrency(transaction.items.reduce((acc: number, i: TransactionItemDetails) => acc + i.discount_amount, 0))}</span></div>
                     <div className="flex justify-between text-base font-bold mt-2"><span>Grand Total:</span> <span>{formatCurrency(transaction.grand_total)}</span></div>
                 </div>
             </div>
@@ -126,7 +148,7 @@ export function SalesReportClient({
     const [isExporting, startExporting] = useTransition();
     
     const [activeTab, setActiveTab] = useState('summary');
-    const [selectedTransaction, setSelectedTransaction] = useState<TransactionHistoryItem | null>(null);
+    const [selectedTransaction, setSelectedTransaction] = useState<TransactionHistoryEntry | null>(null);
 
     const [date, setDate] = useState({
         from: defaultStartDate,
@@ -222,7 +244,7 @@ export function SalesReportClient({
                                                 <CartesianGrid strokeDasharray="3 3" />
                                                 <XAxis dataKey="date" tickFormatter={formatDateForChart} />
                                                 <YAxis tickFormatter={(v) => `Rp${v/1000}k`} />
-                                                <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '0.5rem' }} formatter={(value:any) => formatCurrency(Number(value))} />
+                                                <Tooltip formatter={(value:any) => formatCurrency(Number(value))} />
                                                 <Legend />
                                                 <Line type="monotone" dataKey="net_revenue" name="Pendapatan" stroke="#0d9488" />
                                                 <Line type="monotone" dataKey="gross_profit" name="Laba" stroke="#8b5cf6" />
@@ -233,9 +255,9 @@ export function SalesReportClient({
                                         <h3 className="font-semibold mb-4 flex items-center gap-2"><Clock size={18}/> Transaksi per Jam</h3>
                                         <ResponsiveContainer width="100%" height={300}>
                                             <BarChart data={initialData.hourly_sales_trend}>
-                                                 <XAxis dataKey="hour" tickFormatter={(h) => `${h}:00`} />
+                                                 <XAxis dataKey="hour" type="category" tickFormatter={(h) => `${h}:00`} />
                                                  <YAxis allowDecimals={false}/>
-                                                 <Tooltip cursor={{fill: 'rgba(13, 148, 136, 0.1)'}} contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '0.5rem' }} />
+                                                 <Tooltip cursor={{fill: 'rgba(13, 148, 136, 0.1)'}} />
                                                  <Bar dataKey="transaction_count" name="Jumlah Transaksi" fill="#0d9488" />
                                             </BarChart>
                                         </ResponsiveContainer>
@@ -262,7 +284,7 @@ export function SalesReportClient({
                                     <h3 className="font-semibold mb-4 flex items-center gap-2"><PieIcon size={18}/> Pendapatan per Kategori</h3>
                                      <ResponsiveContainer width="100%" height={300}>
                                        <PieChart>
-                                           <Pie data={initialData.category_performance} dataKey="net_revenue" nameKey="category_name" cx="50%" cy="50%" outerRadius={100} labelLine={false} label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => { const RADIAN = Math.PI / 180; const radius = innerRadius + (outerRadius - innerRadius) * 0.5; const x = cx + radius * Math.cos(-midAngle * RADIAN); const y = cy + radius * Math.sin(-midAngle * RADIAN); return ( <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central"> {`${(percent * 100).toFixed(0)}%`} </text> ); }}>
+                                           <Pie data={initialData.category_performance} dataKey="net_revenue" nameKey="category_name" cx="50%" cy="50%" outerRadius={100} labelLine={false} label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => { const RADIAN = Math.PI / 180; const radius = innerRadius + (outerRadius - innerRadius) * 0.5; const x = cx + radius * Math.cos(-midAngle * RADIAN); const y = cy + radius * Math.sin(-midAngle * RADIAN); return ( <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central"> {`${(percent * 100).toFixed(0)}%`} </text> ); }}>
                                                {initialData.category_performance.map((entry, index) => <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
                                            </Pie>
                                            <Tooltip formatter={(value:any) => formatCurrency(Number(value))}/>
@@ -306,7 +328,7 @@ export function SalesReportClient({
                            <div className="p-4 bg-white dark:bg-gray-800/50 rounded-lg border">
                                 <h3 className="font-semibold mb-4">Riwayat Transaksi</h3>
                                 <ReportTable headers={['No. Transaksi', 'Tanggal', 'Kasir', 'Pelanggan', 'Total', 'Aksi']} data={initialData.transaction_history}
-                                    renderRow={(tx, index) => (
+                                    renderRow={(tx: TransactionHistoryEntry, index) => (
                                         <tr key={tx.id} className="border-b last:border-b-0">
                                             <td className="p-3 font-mono text-xs">{tx.transaction_number}</td>
                                             <td className="p-3">{formatFullDateTime(tx.transaction_date)}</td>
