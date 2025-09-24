@@ -8,7 +8,7 @@ import { getInventoryReport } from './actions';
 import type { InventoryReportData } from './actions';
 
 async function getOutletsForFilter() {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -38,8 +38,8 @@ export default async function InventoryReportPage({
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-    // Cek otentikasi
-    const cookieStore = cookies();
+    // Authentication check
+    const cookieStore = await cookies();
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -50,13 +50,15 @@ export default async function InventoryReportPage({
         redirect('/login');
     }
 
-    // Tentukan rentang tanggal filter
-    const now = new Date();
-    const startDate = searchParams.from ? parseISO(searchParams.from as string) : startOfMonth(now);
-    const endDate = searchParams.to ? parseISO(searchParams.to as string) : endOfMonth(now);
-    const outletId = typeof searchParams.outletId === 'string' ? searchParams.outletId : null;
+    // FIX: Correctly await the searchParams object before accessing its properties.
+    const resolvedSearchParams = await searchParams;
 
-    // Ambil data laporan dan daftar outlet secara paralel
+    const now = new Date();
+    const startDate = resolvedSearchParams.from ? parseISO(resolvedSearchParams.from as string) : startOfMonth(now);
+    const endDate = resolvedSearchParams.to ? parseISO(resolvedSearchParams.to as string) : endOfMonth(now);
+    const outletId = typeof resolvedSearchParams.outletId === 'string' ? resolvedSearchParams.outletId : null;
+
+    // Fetch data in parallel
     const [initialData, outlets] = await Promise.all([
         getInventoryReport(startDate, endDate, outletId),
         getOutletsForFilter()
