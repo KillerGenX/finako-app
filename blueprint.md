@@ -10,55 +10,39 @@ Finako adalah aplikasi Point of Sale (POS) dan manajemen inventaris berbasis clo
 
 ## Status & Rencana Aksi Saat Ini
 
-### Kondisi Modul POS
-*   **Alur Kerja:** Pengguna dapat memilih produk, menambahkannya ke keranjang, memberikan diskon, menautkan transaksi ke pelanggan, dan menerima berbagai metode pembayaran.
-*   **Keterbatasan:** Laporan penjualan yang ada saat ini masih sangat dasar dan belum memanfaatkan kekayaan data yang tersimpan di database.
+### **[SELESAI]** Fase 18 - Dasbor Analisis Penjualan Komprehensif
+
+Fase ini telah selesai. Dasbor laporan penjualan yang ada saat ini merupakan alat analisis yang canggih dan interaktif, mencakup analisis produk, pelanggan, dan ringkasan pajak.
 
 ---
 
-## Rencana Aksi: Fase 20 - Dasbor Analisis Penjualan Komprehensif
+## Rencana Aksi Berikutnya
 
-Tujuan dari fase ini adalah untuk merombak total halaman laporan penjualan menjadi sebuah dasbor analitik interaktif yang memberikan wawasan bisnis mendalam dan dapat ditindaklanjuti.
+Berdasarkan analisis kebutuhan, pengembangan akan difokuskan pada dua modul laporan baru yang krusial.
 
-### 1. Visi & Fitur Utama
+### **Prioritas Utama: Modul Laporan Pajak (Kebutuhan Operasional & Kepatuhan)**
 
-Dasbor baru akan diorganisir ke dalam beberapa **Tab** untuk menjaga antarmuka tetap bersih dan intuitif, memungkinkan pengguna beralih antara data ringkasan (agregat) dan data detail (transaksional).
+Modul ini akan menjadi sumber data utama bagi tim keuangan untuk keperluan pelaporan pajak (seperti PPN) dan audit. Fokusnya adalah pada akurasi, rincian, dan kemudahan ekspor.
 
-*   **Tab 1: Ringkasan & Tren Utama (Visual)**
-    *   **Kartu Metrik Keuangan:** Menampilkan data kunci seperti Pendapatan Bersih, HPP, Laba Kotor, Margin, dan Pajak.
-    *   **Grafik Tren Harian:** Visualisasi pendapatan dan laba dari hari ke hari.
-    *   **Analisis Jam Sibuk:** Grafik baru untuk mengidentifikasi volume transaksi per jam, membantu dalam penjadwalan staf dan manajemen operasional.
+*   **Visi & Fitur Utama:**
+    *   **Filter Lengkap:** Pengguna dapat memfilter data berdasarkan rentang tanggal, outlet, dan tarif pajak spesifik.
+    *   **Metrik Kunci:** Menampilkan kartu ringkasan untuk *Dasar Pengenaan Pajak (DPP)*, *Total Pajak Terkumpul*, dan *Jumlah Transaksi Kena Pajak*.
+    *   **Tabel Rinci:** Menyajikan tabel detail dari **setiap baris item** yang dikenai pajak, bukan hanya per transaksi, untuk akurasi maksimal.
+    *   **Ekspor ke Excel:** Fitur wajib untuk memungkinkan tim keuangan mengolah data lebih lanjut dan menyimpannya sebagai arsip audit.
 
-*   **Tab 2: Analisis Produk (Visual)**
-    *   **Tabel Produk Paling Menguntungkan:** Tabel yang sudah ada, diperkaya dengan data yang lebih relevan.
-    *   **Analisis Kategori & Merek:** Visualisasi (Pie/Bar Chart) baru untuk menunjukkan kontribusi pendapatan dan laba dari setiap kategori dan merek produk.
+### **Prioritas Berikutnya: Modul Laporan Inventaris (Kebutuhan Strategis & Operasional)**
 
-*   **Tab 3: Analisis Staf & Pelanggan (Tabel)**
-    *   **Tabel Kinerja Kasir:** Fitur baru untuk melacak total penjualan, jumlah transaksi, dan nilai transaksi rata-rata per anggota staf.
-    *   **Tabel Pelanggan Teratas:** Fitur baru untuk mengidentifikasi pelanggan paling loyal berdasarkan total pembelanjaan.
+Modul ini akan mengkonsolidasikan semua laporan terkait inventaris ke dalam satu dasbor yang komprehensif, memberikan wawasan mendalam tentang kesehatan stok.
 
-*   **Tab 4: Analisis Metode Pembayaran (Visual)**
-    *   **Rincian Metode Pembayaran:** Pie chart baru yang memecah total pendapatan berdasarkan metode pembayaran (Tunai, QRIS, Kartu, dll.).
+*   **Visi & Fitur Utama (Berbasis Tab):**
+    *   **Tab Ringkasan:** Menampilkan valuasi stok saat ini dan metrik kunci lainnya.
+    *   **Tab Barang Rusak (Write-Offs):** Rincian semua stok yang dihapusbukukan beserta alasannya.
+    *   **Tab Transfer Stok:** Riwayat lengkap semua transfer antar-outlet.
+    *   **Tab Stok Opname:** Analisis hasil dan selisih dari semua sesi stok opname.
+    *   **Tab Kartu Stok (Ledger):** Kemampuan untuk melacak semua pergerakan masuk/keluar untuk satu item produk spesifik.
 
-*   **Tab 5: Riwayat Transaksi (Detail & Drill-Down)**
-    *   **Tabel Transaksi Individual:** Tabel lengkap yang menampilkan setiap transaksi dalam rentang tanggal yang dipilih.
-    *   **Fitur Pencarian & Filter:** Kemampuan untuk mencari berdasarkan nomor transaksi atau memfilter berdasarkan kasir/pelanggan.
-    *   **Aksi "Lihat Detail":** Tombol di setiap baris untuk membuka modal (pop-up) yang menampilkan detail struk/invoice lengkap, termasuk semua item, harga, diskon, dan pajak.
+### **Rencana Jangka Panjang (Setelah Laporan Selesai):**
 
-### 2. Rencana Implementasi Teknis
-
-*   **Backend (Database):**
-    1.  **RPC Function:** Membuat satu fungsi RPC Supabase yang sangat efisien bernama `get_comprehensive_sales_analysis`. Fungsi ini akan mengagregasi semua data yang dibutuhkan dari berbagai tabel dalam satu panggilan database untuk meminimalkan latensi.
-    2.  **Optimasi & Indexing:** **Ini adalah prioritas utama.** Sebelum fungsi dibuat, akan dilakukan analisis untuk memastikan semua *foreign key* dan kolom yang sering digunakan dalam klausa `WHERE`, `JOIN`, dan `ORDER BY` (seperti `organization_id`, `outlet_id`, `transaction_date`, `customer_id`, `member_id`) memiliki **indeks (index)** yang tepat. Ini krusial untuk memastikan dasbor dapat memuat data dalam jumlah besar dengan cepat tanpa membebani database.
-
-*   **Backend (Next.js Server Actions):**
-    1.  Membuat atau memodifikasi *server action* di `actions.ts` untuk memanggil fungsi RPC baru.
-    2.  Mendefinisikan tipe data TypeScript (`ComprehensiveReportData`) yang kuat untuk mencocokkan output JSON dari database, memastikan keamanan tipe dari backend hingga frontend.
-
-*   **Frontend (UI/UX):**
-    1.  Merombak `SalesReportClient.tsx` untuk mengimplementasikan tata letak berbasis Tab.
-    2.  Menggunakan `recharts` untuk membuat komponen visualisasi data yang informatif dan dapat digunakan kembali.
-    3.  Mengelola state dan transisi dengan `useTransition` untuk memastikan pengalaman pengguna yang mulus saat memfilter atau beralih tab.
-
-*   **Ekspor Excel:**
-    1.  Meningkatkan fungsi ekspor Excel yang ada. Laporan yang dihasilkan akan memiliki **beberapa lembar kerja (sheets)**, masing-masing didedikasikan untuk satu jenis analisis (Ringkasan, Top Produk, Kinerja Kasir, dll.), menjadikannya sangat profesional dan mudah dianalisis.
+*   **Modul Laporan Keuangan Dasar:** Mengembangkan laporan Laba Rugi dan Neraca.
+*   **Peningkatan Modul POS:** Menambahkan fitur-fitur baru seperti manajemen meja atau pesanan terpisah/gabung.
+*   **Manajemen Peran & Hak Akses (Roles & Permissions):** Menyempurnakan kontrol akses untuk berbagai peran pengguna.
