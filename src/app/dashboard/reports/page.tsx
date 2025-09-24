@@ -23,18 +23,18 @@ export default function ReportsDashboardPage() {
                     </div>
                 </Link>
 
-                {/* --- Laporan Pajak (Prioritas Selanjutnya) --- */}
-                <div className="block p-6 bg-gray-50 dark:bg-gray-800/50 rounded-lg border cursor-not-allowed opacity-60">
+                {/* --- Laporan Pajak (Aktif) --- */}
+                <Link href="/dashboard/reports/tax" className="block p-6 bg-white dark:bg-gray-800 rounded-lg border hover:shadow-lg transition-shadow">
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-indigo-100 dark:bg-indigo-900 rounded-lg">
                             <Landmark className="h-6 w-6 text-indigo-600" />
                         </div>
                         <div>
                             <h2 className="text-lg font-semibold">Laporan Pajak</h2>
-                            <p className="text-sm text-gray-500">Rincian pajak penjualan untuk pelaporan. (Segera Hadir)</p>
+                            <p className="text-sm text-gray-500">Rincian pajak penjualan untuk pelaporan.</p>
                         </div>
                     </div>
-                </div>
+                </Link>
 
                 {/* --- Laporan Inventaris --- */}
                 <div className="block p-6 bg-gray-50 dark:bg-gray-800/50 rounded-lg border cursor-not-allowed opacity-60">
