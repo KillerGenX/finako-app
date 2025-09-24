@@ -1,6 +1,6 @@
 // src/app/dashboard/reports/page.tsx
 import Link from 'next/link';
-import { AreaChart, ShoppingBag, Landmark, Archive } from 'lucide-react';
+import { AreaChart, Landmark, Archive } from 'lucide-react';
 
 export default function ReportsDashboardPage() {
     return (
@@ -10,7 +10,7 @@ export default function ReportsDashboardPage() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 
-                {/* --- Laporan Aktif --- */}
+                {/* --- Laporan Penjualan (Aktif) --- */}
                 <Link href="/dashboard/reports/sales" className="block p-6 bg-white dark:bg-gray-800 rounded-lg border hover:shadow-lg transition-shadow">
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-green-100 dark:bg-green-900 rounded-lg">
@@ -36,18 +36,18 @@ export default function ReportsDashboardPage() {
                     </div>
                 </Link>
 
-                {/* --- Laporan Inventaris --- */}
-                <div className="block p-6 bg-gray-50 dark:bg-gray-800/50 rounded-lg border cursor-not-allowed opacity-60">
+                {/* --- Laporan Inventaris (Aktif) --- */}
+                <Link href="/dashboard/reports/inventory" className="block p-6 bg-white dark:bg-gray-800 rounded-lg border hover:shadow-lg transition-shadow">
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-sky-100 dark:bg-sky-900 rounded-lg">
                             <Archive className="h-6 w-6 text-sky-600" />
                         </div>
                         <div>
                             <h2 className="text-lg font-semibold">Laporan Inventaris</h2>
-                            <p className="text-sm text-gray-500">Analisis stok, transfer, dan opname. (Segera Hadir)</p>
+                            <p className="text-sm text-gray-500">Analisis stok, transfer, dan opname.</p>
                         </div>
                     </div>
-                </div>
+                </Link>
 
             </div>
         </div>
