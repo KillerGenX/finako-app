@@ -1,6 +1,6 @@
 # Dokumentasi Aplikasi Finako
 
-Versi: 3.2
+Versi: 3.3
 Tanggal Pembaruan: [Tanggal Hari Ini]
 
 ---
@@ -30,7 +30,7 @@ Fase ini berfokus pada transformasi data operasional menjadi wawasan bisnis yang
 
 ---
 
-#### **Fase 19: Perbaikan Alur Kerja Inti - Selesai**
+### **Fase 19: Perbaikan Alur Kerja Inti - Selesai**
 Fase ini memastikan integritas data dari alur kerja yang paling krusial.
 
 **Pencapaian Utama (Fase 19):**
@@ -44,8 +44,24 @@ Fase ini memastikan integritas data dari alur kerja yang paling krusial.
 
 ---
 
+### **Fase 20: Modul Laporan Kepatuhan & Operasional - Selesai**
+
+Fase ini berfokus pada penyediaan alat bantu laporan yang krusial untuk kebutuhan kepatuhan (pajak) dan operasional internal.
+
+**Pencapaian Utama (Fase 20):**
+- **Implementasi Laporan Pajak:**
+    - **Tujuan:** Menyediakan laporan rinci untuk keperluan pelaporan PPN dan audit keuangan.
+    - **Backend (RPC):** Fungsi `get_tax_report_data` telah dibuat dan disempurnakan. Fungsi ini secara efisien mengagregasi data dari berbagai tabel untuk menghasilkan laporan yang akurat.
+    - **Frontend (UI/UX):** Antarmuka pengguna yang interaktif telah dibangun, lengkap dengan filter tanggal dan outlet, kartu metrik kunci (DPP, Total Pajak), dan tabel rincian per item transaksi.
+    - **Fitur Ekspor:** Kemampuan untuk mengekspor laporan ke format Excel telah disediakan, sebuah fitur vital untuk tim keuangan.
+    - **Penyempurnaan Logika Bisnis:**
+        - **Resiliensi Data:** Query RPC telah diperbarui untuk menggunakan `LEFT JOIN`, memastikan data transaksi historis tetap muncul meskipun produk atau outlet terkait telah dihapus.
+        - **Penamaan Varian yang Akurat:** Logika penamaan item telah disempurnakan untuk menampilkan nama produk secara lengkap (misal: "Baju Polos - XL"), memberikan kejelasan dalam laporan.
+
+---
+
 #### **Fase Selanjutnya: Peningkatan Fungsionalitas & Pengalaman Pengguna (UX)**
-Setelah fondasi data diperkuat, fokus selanjutnya adalah menambahkan fitur bernilai tinggi yang meningkatkan efisiensi operasional dan loyalitas pelanggan.
+Setelah fondasi data dan laporan diperkuat, fokus selanjutnya adalah menambahkan fitur bernilai tinggi yang meningkatkan efisiensi operasional dan loyalitas pelanggan.
 
 **Rencana Aksi Selanjutnya:**
 - **Implementasi Mode Offline untuk POS:**

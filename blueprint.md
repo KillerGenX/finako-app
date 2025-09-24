@@ -14,23 +14,23 @@ Finako adalah aplikasi Point of Sale (POS) dan manajemen inventaris berbasis clo
 
 Fase ini telah selesai. Dasbor laporan penjualan yang ada saat ini merupakan alat analisis yang canggih dan interaktif, mencakup analisis produk, pelanggan, dan ringkasan pajak.
 
+### **[SELESAI]** Fase 20 - Modul Laporan Pajak
+
+Modul ini telah selesai diimplementasikan untuk menyediakan alat bantu krusial bagi tim keuangan untuk kebutuhan pelaporan PPN dan audit.
+
+*   **Pencapaian Utama:**
+    *   **Backend (RPC):** Fungsi `get_tax_report_data` telah dibuat, menyediakan agregasi data pajak yang efisien dan akurat.
+    *   **Frontend (UI/UX):** Antarmuka pengguna yang interaktif telah dibangun, lengkap dengan filter, kartu metrik, dan tabel rincian per item.
+    *   **Fitur Ekspor:** Kemampuan untuk mengekspor laporan ke format Excel telah disediakan.
+    *   **Penyempurnaan Logika:**
+        - **Resiliensi Data:** Query telah disempurnakan menggunakan `LEFT JOIN` untuk memastikan data historis tetap utuh.
+        - **Penamaan Varian Akurat:** Logika penamaan item kini menampilkan nama produk secara lengkap (misal: "Baju Polos - XL").
+
 ---
 
 ## Rencana Aksi Berikutnya
 
-Berdasarkan analisis kebutuhan, pengembangan akan difokuskan pada dua modul laporan baru yang krusial.
-
-### **Prioritas Utama: Modul Laporan Pajak (Kebutuhan Operasional & Kepatuhan)**
-
-Modul ini akan menjadi sumber data utama bagi tim keuangan untuk keperluan pelaporan pajak (seperti PPN) dan audit. Fokusnya adalah pada akurasi, rincian, dan kemudahan ekspor.
-
-*   **Visi & Fitur Utama:**
-    *   **Filter Lengkap:** Pengguna dapat memfilter data berdasarkan rentang tanggal, outlet, dan tarif pajak spesifik.
-    *   **Metrik Kunci:** Menampilkan kartu ringkasan untuk *Dasar Pengenaan Pajak (DPP)*, *Total Pajak Terkumpul*, dan *Jumlah Transaksi Kena Pajak*.
-    *   **Tabel Rinci:** Menyajikan tabel detail dari **setiap baris item** yang dikenai pajak, bukan hanya per transaksi, untuk akurasi maksimal.
-    *   **Ekspor ke Excel:** Fitur wajib untuk memungkinkan tim keuangan mengolah data lebih lanjut dan menyimpannya sebagai arsip audit.
-
-### **Prioritas Berikutnya: Modul Laporan Inventaris (Kebutuhan Strategis & Operasional)**
+### **Prioritas Utama: Modul Laporan Inventaris (Kebutuhan Strategis & Operasional)**
 
 Modul ini akan mengkonsolidasikan semua laporan terkait inventaris ke dalam satu dasbor yang komprehensif, memberikan wawasan mendalam tentang kesehatan stok.
 
