@@ -5,7 +5,7 @@ import { useState, useTransition, Fragment, useEffect, useCallback } from 'react
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { format, parseISO } from 'date-fns';
 import { id as indonesia } from 'date-fns/locale';
-import { BarChart, BookOpen, Truck, ClipboardCheck, ArchiveX, Loader2, Search, Package, RefreshCw, ChevronDown } from 'lucide-react';
+import { BarChart, BookOpen, Truck, ClipboardCheck, ArchiveX, Loader2, Search, Package, RefreshCw, ChevronDown, Download } from 'lucide-react';
 import { ResponsiveContainer, BarChart as RechartsBarChart, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 
@@ -14,7 +14,9 @@ import {
     InventoryLedgerData, 
     VariantSearchResult, 
     searchVariantsForLedger,
-    getInventoryLedger
+    getInventoryLedger,
+    exportInventoryReportToExcel,
+    exportLedgerToExcel
 } from './actions';
 
 // --- Helper & Util ---
@@ -28,6 +30,13 @@ const formatDate = (dateString: string | null | undefined) => {
 };
 const formatQty = (qty: number) => new Intl.NumberFormat('id-ID').format(qty);
 
+// --- File Download Helper ---
+const downloadFile = (base64Data: string, fileName: string) => {
+    const link = document.createElement("a");
+    link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64Data}`;
+    link.download = fileName;
+    link.click();
+};
 
 // --- Komponen Anak ---
 const StatCard = ({ title, value, icon }: { title: string, value: string, icon: React.ReactNode }) => (
@@ -62,6 +71,7 @@ const LedgerTab = () => {
     const [selectedVariant, setSelectedVariant] = useState<VariantSearchResult | null>(null);
     const [ledgerData, setLedgerData] = useState<InventoryLedgerData>(null);
     const [isLoadingLedger, setIsLoadingLedger] = useState(false);
+    const [isExporting, startExporting] = useTransition();
 
     useEffect(() => {
         const performSearch = async () => {
@@ -93,6 +103,18 @@ const LedgerTab = () => {
         setSearchTerm('');
     }
 
+    const handleExport = () => {
+        if (!ledgerData || !selectedVariant) return;
+        startExporting(async () => {
+            const result = await exportLedgerToExcel(ledgerData, selectedVariant.name, selectedVariant.sku);
+            if (result.success && result.data) {
+                downloadFile(result.data, `Kartu_Stok_${selectedVariant.sku}.xlsx`);
+            } else {
+                alert(`Gagal mengekspor data: ${result.message}`);
+            }
+        });
+    };
+
     const summary = Array.isArray(ledgerData) 
         ? ledgerData.reduce((acc, curr) => {
             acc.totalStock += curr.quantity_on_hand;
@@ -105,37 +127,29 @@ const LedgerTab = () => {
     if (selectedVariant && !isLoadingLedger) {
         return (
             <div className="border rounded-lg p-4">
-                <div className="flex justify-between items-start">
-                    <div>
+                <div className="flex justify-between items-start gap-4">
+                    <div className="flex-grow">
                         <h2 className="text-xl font-bold">{selectedVariant.name}</h2>
                         <p className="text-sm text-gray-500">SKU: {selectedVariant.sku} | Stok Gabungan: <strong>{formatQty(summary.totalStock)}</strong> | Total Nilai: <strong>{formatCurrency(summary.totalValue)}</strong></p>
                     </div>
-                    <button onClick={resetSearch} className="flex items-center gap-1 text-sm text-sky-600 hover:underline">
-                        <RefreshCw size={14} /> Cari Produk Lain
-                    </button>
+                    <div className="flex-shrink-0 flex items-center gap-2">
+                        <button onClick={resetSearch} className="flex items-center gap-1 text-sm text-sky-600 hover:underline"><RefreshCw size={14} /> Cari Lain</button>
+                        <button onClick={handleExport} disabled={isExporting} className="px-3 py-1 bg-green-600 text-white rounded text-sm flex items-center gap-2 disabled:opacity-50">{isExporting ? <Loader2 className="animate-spin" size={16}/> : <><Download size={16} /> Excel</>}</button>
+                    </div>
                 </div>
-
+                
                 <h3 className="font-semibold mt-4 mb-2">Riwayat Pergerakan per Outlet</h3>
                 <div className="space-y-2">
                 {Array.isArray(ledgerData) && ledgerData.length > 0 ? (
                     ledgerData.map(outletData => (
                         <details key={outletData.outlet_id} className="bg-gray-50 dark:bg-gray-800/50 rounded" open={ledgerData.length === 1}>
                             <summary className="p-3 font-semibold cursor-pointer flex justify-between items-center">
-                                <div>
-                                    {outletData.outlet_name}
-                                    <span className="ml-2 font-normal text-sm text-gray-500">Stok: {formatQty(outletData.quantity_on_hand)} | Nilai: {formatCurrency(outletData.total_value)}</span>
-                                </div>
+                                <div>{outletData.outlet_name}<span className="ml-2 font-normal text-sm text-gray-500">Stok: {formatQty(outletData.quantity_on_hand)} | Nilai: {formatCurrency(outletData.total_value)}</span></div>
                                 <ChevronDown className="transform transition-transform" />
                             </summary>
                             <div className="p-3 border-t max-h-[400px] overflow-y-auto">
                                 <ReportTable headers={['Tanggal', 'Jenis', 'Referensi', 'Masuk/Keluar', 'Saldo Akhir']} data={outletData.movements} renderRow={(item, index) => (
-                                     <tr key={index} className="border-b last:border-b-0">
-                                        <td className="p-3">{formatDate(item.created_at)}</td>
-                                        <td className="p-3">{item.movement_type}</td>
-                                        <td className="p-3 font-mono text-xs">{item.reference_number || '-'}</td>
-                                        <td className={`p-3 text-right font-semibold ${item.quantity_change > 0 ? 'text-green-600' : 'text-red-600'}`}>{item.quantity_change > 0 ? `+${formatQty(item.quantity_change)}` : formatQty(item.quantity_change)}</td>
-                                        <td className="p-3 text-right">{formatQty(item.balance)}</td>
-                                    </tr>
+                                     <tr key={index} className="border-b last:border-b-0"><td className="p-3">{formatDate(item.created_at)}</td><td className="p-3">{item.movement_type}</td><td className="p-3 font-mono text-xs">{item.reference_number || '-'}</td><td className={`p-3 text-right font-semibold ${item.quantity_change > 0 ? 'text-green-600' : 'text-red-600'}`}>{item.quantity_change > 0 ? `+${formatQty(item.quantity_change)}` : formatQty(item.quantity_change)}</td><td className="p-3 text-right">{formatQty(item.balance)}</td></tr>
                                 )}/>
                             </div>
                         </details>
@@ -151,21 +165,8 @@ const LedgerTab = () => {
             <h3 className="text-lg font-semibold text-center mb-2">Investigasi Kartu Stok</h3>
             <p className="text-sm text-gray-500 text-center mb-6">Pilih satu produk untuk melihat seluruh riwayat pergerakannya.</p>
             <div className="relative max-w-lg mx-auto">
-                <div className="flex items-center gap-2 p-2 border rounded-md">
-                    <Search className="text-gray-500" />
-                    <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Cari berdasarkan Nama atau SKU Produk..." className="w-full focus:outline-none bg-transparent" />
-                    {isLoadingSearch && <Loader2 className="animate-spin text-gray-400" />}
-                </div>
-                {results.length > 0 && (
-                    <ul className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto">
-                        {results.map(variant => (
-                            <li key={variant.id} onClick={() => handleSelectVariant(variant)} className="p-3 hover:bg-sky-100 cursor-pointer">
-                                <p className="font-semibold">{variant.name}</p>
-                                <p className="text-xs text-gray-500">SKU: {variant.sku}</p>
-                            </li>
-                        ))}
-                    </ul>
-                )}
+                <div className="flex items-center gap-2 p-2 border rounded-md"><Search className="text-gray-500" /><input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Cari berdasarkan Nama atau SKU Produk..." className="w-full focus:outline-none bg-transparent" />{isLoadingSearch && <Loader2 className="animate-spin text-gray-400" />}</div>
+                {results.length > 0 && (<ul className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto">{results.map(variant => (<li key={variant.id} onClick={() => handleSelectVariant(variant)} className="p-3 hover:bg-sky-100 cursor-pointer"><p className="font-semibold">{variant.name}</p><p className="text-xs text-gray-500">SKU: {variant.sku}</p></li>))}</ul>)}
             </div>
             {isLoadingLedger && <div className="text-center p-8"><Loader2 className="mx-auto h-8 w-8 animate-spin text-sky-600" /></div>}
         </div>
@@ -189,6 +190,7 @@ export function InventoryReportClient({
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const [isFiltering, startFiltering] = useTransition();
+    const [isExporting, startExporting] = useTransition();
     
     const [activeTab, setActiveTab] = useState('summary');
     const [date, setDate] = useState({from: defaultStartDate, to: defaultEndDate});
@@ -202,6 +204,20 @@ export function InventoryReportClient({
         else current.delete("outletId");
         startFiltering(() => router.push(`${pathname}?${current.toString()}`));
     };
+
+    const handleExportReport = () => {
+        if (!initialData) return;
+        startExporting(async () => {
+            const period = `${format(date.from, 'd MMM yyyy')} - ${format(date.to, 'd MMM yyyy')}`;
+            const outletName = outlets.find(o => o.id === selectedOutlet)?.name || 'Semua Outlet';
+            const result = await exportInventoryReportToExcel(initialData, period, outletName);
+            if (result.success && result.data) {
+                downloadFile(result.data, `Laporan_Inventaris_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+            } else {
+                alert(`Gagal mengekspor data: ${result.message}`);
+            }
+        });
+    };
     
     return (
         <div className="w-full">
@@ -213,7 +229,8 @@ export function InventoryReportClient({
                     <div><label htmlFor="to" className="text-sm font-medium text-gray-600">Sampai Tanggal</label><input id="to" type="date" name="to" value={format(date.to, 'yyyy-MM-dd')} onChange={(e) => setDate(d => ({...d, to: new Date(e.target.value)}))} className="p-2 border rounded w-full mt-1 bg-white dark:bg-gray-800" /></div>
                 </div>
                 <div><label htmlFor="outlet" className="text-sm font-medium text-gray-600">Outlet</label><select id="outlet" value={selectedOutlet} onChange={(e) => setSelectedOutlet(e.target.value)} className="p-2 border rounded w-full mt-1 min-w-[150px] bg-white dark:bg-gray-800"><option value="all">Semua Outlet</option>{outlets.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}</select></div>
-                <button onClick={handleApplyFilter} disabled={isFiltering} className="px-4 py-2 bg-sky-600 text-white rounded disabled:opacity-50 h-10">{isFiltering ? <Loader2 className="animate-spin" /> : "Terapkan"}</button>
+                <button onClick={handleApplyFilter} disabled={isFiltering || isExporting} className="px-4 py-2 bg-sky-600 text-white rounded disabled:opacity-50 h-10">{isFiltering ? <Loader2 className="animate-spin" /> : "Terapkan"}</button>
+                <button onClick={handleExportReport} disabled={isFiltering || isExporting || !initialData} className="px-4 py-2 bg-green-600 text-white rounded flex items-center gap-2 disabled:opacity-50 h-10">{isExporting ? <Loader2 className="animate-spin" /> : <><Download size={16} /> Export Laporan</>}</button>
             </div>
             
             <div className="mb-6 p-1 bg-gray-100 dark:bg-gray-900 rounded-lg flex gap-1 flex-wrap">
@@ -224,7 +241,7 @@ export function InventoryReportClient({
                 <TabButton active={activeTab === 'write_offs'} onClick={() => setActiveTab('write_offs')}>Barang Rusak</TabButton>
             </div>
 
-            {isFiltering ? (<div className="text-center p-12"><Loader2 className="mx-auto h-12 w-12 animate-spin text-sky-600" /></div>) 
+            {isFiltering ? (<div className="text-center p-12"><Loader2 className="mx-auto h-12 w-12 animate-spin text-sky-600" /><p className="mt-4">Memuat laporan...</p></div>) 
             : !initialData ? (<div className="text-center p-12"><p>Gagal memuat data laporan atau tidak ada data pada rentang tanggal ini.</p></div>) 
             : (
                 <div className="space-y-6">
@@ -242,7 +259,9 @@ export function InventoryReportClient({
                                     <RechartsBarChart data={initialData.valuation_by_category}>
                                         <XAxis dataKey="category_name" />
                                         <YAxis tickFormatter={(v) => `Rp${v/1000000} Jt`} />
-                                        <Tooltip formatter={(value:any) => formatCurrency(Number(value))} /><Legend /><Bar dataKey="total_value" name="Nilai Inventaris" fill="#0284c7" />
+                                        <Tooltip formatter={(value:any) => formatCurrency(Number(value))} />
+                                        <Legend />
+                                        <Bar dataKey="total_value" name="Nilai Inventaris" fill="#0284c7" />
                                     </RechartsBarChart>
                                 </ResponsiveContainer>
                             </div>
